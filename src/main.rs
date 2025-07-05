@@ -31,10 +31,11 @@ async fn root() -> impl IntoResponse {
 
 async fn dispense_treat(_auth: Auth) -> impl IntoResponse {
     match dispenser::dispense() {
-        Ok(_) => "Treat dispensed successfully!",
+        Ok(_) => "Treat dispensed successfully!".to_string(),
         Err(e) => {
-            error!("Failed to dispense treat: {}", e);
-            "Failed to dispense treat."
+            let msg = format!("Failed to dispense treat: {}", e);
+            error!("{}", msg);
+            msg
         }
     }
 }
