@@ -1,11 +1,15 @@
 mod dispenser;
+mod auth;
 
 use axum::{Router, response::IntoResponse, routing::get};
 use env_logger::Env;
 use log::{info, error};
+use auth::Auth;
 
 #[tokio::main]
 async fn main() {
+    dotenv::dotenv().ok();
+
     env_logger::Builder::from_env(Env::default().default_filter_or("info"))
         .target(env_logger::Target::Stdout)
         .init();
@@ -25,8 +29,7 @@ async fn root() -> impl IntoResponse {
 }
 
 
-async fn dispense_treat() -> impl IntoResponse {
-    // Logic to dispense a treat
+async fn dispense_treat(_auth: Auth) -> impl IntoResponse {
     match dispenser::dispense() {
         Ok(_) => "Treat dispensed successfully!",
         Err(e) => {
