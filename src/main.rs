@@ -14,8 +14,12 @@ async fn main() {
         .target(env_logger::Target::Stdout)
         .init();
 
-    let _ = std::env::var("DISPENSER_API_TOKEN")
-        .expect("Environment variable DISPENSER_API_TOKEN must be set");
+    if std::env::var_os("DISPENSER_API_TOKEN").map_or(true, |v| v.is_empty()) {
+        error!("DISPENSER_API_TOKEN environment variable is not set or is empty");
+        std::process::exit(1);
+    } else {
+        info!("DISPENSER_API_TOKEN is set");
+    }
 
     let app = Router::new()
         .route("/", get(root))

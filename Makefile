@@ -1,3 +1,4 @@
+export $(shell xargs < .env)
 IMAGE_NAME=treat-dispenser-api
 REGISTRY=harbor.crungo.net/scout
 TAG=dev
@@ -19,12 +20,14 @@ run-debug: kill-containers build
 	--rm ${FULL_IMAGE}
 
 run-latest-debug: kill-containers
-	- docker run -it -p 3500:3500 -e DISPENSER_API_TOKEN=supersecret -e RUST_LOG=debug \
+	docker run -it -p 3500:3500 -e DISPENSER_API_TOKEN=supersecret -e RUST_LOG=debug \
 	--rm ${REGISTRY}/${IMAGE_NAME}:latest
 
 clean:
-	buildctl prune --all
-	docker rmi ${FULL_IMAGE}
+	- buildctl prune --all
+	- docker rmi ${FULL_IMAGE}
+	- docker rmi ${REGISTRY}/${IMAGE_NAME}:latest
+	- docker image prune -f
 
 
 kill-containers:
