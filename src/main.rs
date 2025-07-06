@@ -1,5 +1,7 @@
 mod dispenser;
 mod auth;
+mod error;
+use error::ApiError;
 
 use axum::{Router, response::IntoResponse, routing::get};
 use env_logger::Env;
@@ -57,15 +59,9 @@ async fn root() -> impl IntoResponse {
 }
 
 
-async fn dispense_treat(_auth: Auth) -> impl IntoResponse {
-    match dispenser::dispense() {
-        Ok(_) => "Treat dispensed successfully!".to_string(),
-        Err(e) => {
-            let msg = format!("Failed to dispense treat: {}", e);
-            error!("{}", msg);
-            msg
-        }
-    }
+async fn dispense_treat(_auth: Auth) -> Result<&'static str, ApiError> {
+    dispenser::dispense()?;
+    Ok("Treat dispensed!")
 }
 
 async fn health_check() -> impl IntoResponse {
