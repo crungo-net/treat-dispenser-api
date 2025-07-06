@@ -2,7 +2,7 @@ use axum::{
     extract::{FromRequestParts},
     http::{request::Parts, StatusCode}
 };
-use log::debug;
+use log::{debug, info};
 
 pub struct Auth;
 
@@ -19,8 +19,8 @@ where
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         // Here you would typically check for an authorization header or token
-        let expected_token = std::env::var("DISPENSER_API_TOKEN").expect("DISPENSER_API_TOKEN must be set");
-        let auth_header = parts.headers.get("Authorization").and_then(|header| header.to_str().ok()).unwrap_or("");
+        let expected_token = std::env::var("DISPENSER_API_TOKEN").unwrap();
+        let auth_header = parts.headers.get("Authorization").and_then(|header| header.to_str().ok()).unwrap_or("NONE");
 
         // Validate the auth header
         if auth_header == "Bearer " .to_string() + &expected_token {
