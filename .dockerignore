@@ -1,0 +1,8 @@
+target/
+.git/
+.gitlab-ci.yml
+Dockerfile
+.dockerignore
+*.md
+.gitignore
+Makefile

@@ -1,12 +1,11 @@
 [package]
-name = "treat_dispenser"
+name = "treat-dispenser-api"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 axum = "0.8.4"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
 dotenv = "0.15"
 log = "0.4"
 env_logger = "0.11"
-async-trait = "0.1.88"

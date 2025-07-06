@@ -1,0 +1,37 @@
+stages:
+  - build
+
+build-and-push:
+  stage: build
+  image: moby/buildkit:latest
+  tags:
+    - home-lab
+  before_script:
+    - mkdir -p ~/.docker
+    - echo '{"auths":{"harbor.crungo.net":{"username":"'"$CI_REGISTRY_USER"'","password":"'"$CI_REGISTRY_PASSWORD"'"}}}' > ~/.docker/config.json
+  script: |
+    export CACHE_IMAGE=harbor.crungo.net/scout/treat-dispenser-api:buildcache
+    export IMAGE=harbor.crungo.net/scout/treat-dispenser-api
+    export SHORT_SHA=$(echo "$CI_COMMIT_SHA" | cut -c1-8)
+    export SAFE_BRANCH=$(echo "$CI_COMMIT_BRANCH" | tr '/' '-')
+
+    echo "Pushing image with tags:"
+    echo " - ${IMAGE}:latest"
+    echo " - ${IMAGE}:${SHORT_SHA}"
+    echo " - ${IMAGE}:$SAFE_BRANCH"
+
+    buildctl-daemonless.sh build \
+      --frontend=dockerfile.v0 \
+      --local context=. \
+      --local dockerfile=. \
+      --import-cache type=registry,ref=${CACHE_IMAGE} \
+      --export-cache type=registry,ref=${CACHE_IMAGE},mode=max \
+      --output type=image,name=${IMAGE}:latest,push=true \
+      --output type=image,name=${IMAGE}:${SHORT_SHA},push=true \
+      --output type=image,name=${IMAGE}:${SAFE_BRANCH},push=true \
+      --output type=local,dest=./dist \
+      --opt target=binary-export
+  artifacts:
+    paths:
+      - dist/treat-dispenser-api
+    expire_in: 1 week
