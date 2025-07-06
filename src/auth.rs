@@ -3,6 +3,7 @@ use axum::{
     http::{request::Parts, StatusCode}
 };
 use log::{debug, info};
+use crate::error::ApiError;
 
 pub struct Auth;
 
@@ -15,7 +16,8 @@ where
 {
     // Error type that will be returned if the request does not meet the requirements
     // In this case, we use StatusCode to indicate an error
-    type Rejection = (StatusCode, &'static str);
+    //type Rejection = (StatusCode, &'static str);
+    type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         // Here you would typically check for an authorization header or token
@@ -29,6 +31,6 @@ where
             return Ok(Auth);
         }
         debug!("Authorization failed: expected token {}, got {}", expected_token, auth_header);
-        Err((StatusCode::UNAUTHORIZED, "Unauthorized request"))
+        Err(ApiError::Unauthorized)
     }
 }
