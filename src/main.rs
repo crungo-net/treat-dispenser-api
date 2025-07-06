@@ -1,12 +1,11 @@
 mod dispenser;
 mod auth;
 mod error;
-use error::ApiError;
+mod route;
 
-use axum::{Router, response::IntoResponse, routing::get};
+use axum::{Router, routing::get};
 use env_logger::Env;
 use log::{info, error};
-use auth::Auth;
 
 #[tokio::main]
 async fn main() {
@@ -24,9 +23,9 @@ async fn main() {
     }
 
     let app = Router::new()
-        .route("/", get(root))
-        .route("/health", get(health_check))
-        .route("/dispense", get(dispense_treat));
+        .route("/", get(route::root))
+        .route("/health", get(route::health_check))
+        .route("/dispense", get(route::dispense_treat));
 
     let port = std::env::var("DISPENSER_API_PORT")
         .unwrap_or_else(|_| "3500".to_string());
@@ -51,19 +50,4 @@ async fn main() {
 
 async fn init_server(listener: tokio::net::TcpListener, app: Router) {
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn root() -> impl IntoResponse {
-    info!("Got request to root endpoint");
-    "Treat dispenser is online! Binky time!"
-}
-
-
-async fn dispense_treat(_auth: Auth) -> Result<&'static str, ApiError> {
-    dispenser::dispense()?;
-    Ok("Treat dispensed!")
-}
-
-async fn health_check() -> impl IntoResponse {
-    "OK"
 }
