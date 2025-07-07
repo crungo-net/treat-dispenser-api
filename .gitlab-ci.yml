@@ -27,7 +27,7 @@ build-and-push:
       --frontend=dockerfile.v0 \
       --local context=. \
       --local dockerfile=. \
-      --import-cache type=registry,ref=${CACHE_IMAGE} \
+      --import-cache type=registry,ref=${CACHE_IMAGE},ignore-for=src/ \
       --export-cache type=registry,ref=${CACHE_IMAGE},mode=max \
       --opt build-arg:CACHE_BUST=${CACHE_BUST} \
       --output type=image,name=${IMAGE}:latest,push=true \
