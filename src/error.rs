@@ -1,6 +1,6 @@
 use axum::{response::{IntoResponse, Response}, http::StatusCode};
 use std::fmt;
-use log::{error, info};
+use tracing::{error, info};
 
 #[derive(Debug)]
 pub enum ApiError {

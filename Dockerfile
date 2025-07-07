@@ -14,6 +14,12 @@ RUN cargo build --release --target x86_64-unknown-linux-musl
 # this will prevent the dummy binary from being used in the final image
 RUN rm -rf target/x86_64-unknown-linux-musl/release/treat-dispenser-api && rm -rf src
 
+# Add a build arg that changes on every build to bust the cache
+ARG CACHE_BUST=unknown
+# Force cache invalidation with a dummy command that changes on every build
+RUN echo "Cache bust: ${CACHE_BUST}" > /tmp/cache_bust
+
+
 # Build application runtime image
 COPY src ./src
 RUN cargo build --release --target x86_64-unknown-linux-musl

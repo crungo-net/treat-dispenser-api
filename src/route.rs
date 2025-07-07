@@ -1,11 +1,10 @@
-use log::{info};
+use tracing::{info};
 use crate::dispenser;
 use crate::auth::Auth;
 use crate::error::ApiError;
 use axum::{response::IntoResponse};
 
 pub async fn root() -> impl IntoResponse {
-    info!("Got request to root endpoint");
     "Treat dispenser is online! Binky time!"
 }
 

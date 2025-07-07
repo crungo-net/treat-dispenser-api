@@ -3,16 +3,19 @@ mod auth;
 mod error;
 mod route;
 
-use axum::{Router, routing::get};
-use env_logger::Env;
-use log::{info, error};
+use axum::{routing::get, serve, Router};
+use std::net::SocketAddr;
+use tower_http::trace::{DefaultOnRequest, TraceLayer};
+use tracing::{error, info, Level};
+use axum::extract::ConnectInfo;
+
 
 #[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
 
-    env_logger::Builder::from_env(Env::default().default_filter_or("info"))
-        .target(env_logger::Target::Stdout)
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stdout) // log to stdout for compat with containerized environments
         .init();
 
     if std::env::var_os("DISPENSER_API_TOKEN").map_or(true, |v| v.is_empty()) {
@@ -23,31 +26,51 @@ async fn main() {
     }
 
     let app = Router::new()
-        .route("/", get(route::root))
-        .route("/health", get(route::health_check))
-        .route("/dispense", get(route::dispense_treat));
+    .route("/", get(route::root))
+    .route("/health", get(route::health_check))
+    .route("/dispense", get(route::dispense_treat))
+    .layer(
+        TraceLayer::new_for_http()
+            .make_span_with(|request: &axum::http::Request<_>| {
+                let addr = request
+                    .extensions()
+                    .get::<ConnectInfo<SocketAddr>>()
+                    .map(|ConnectInfo(addr)| addr.to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                
+                // display format: "method=GET uri=/dispense client_ip=
+                // the % is special syntax for formatting in tracing
+                // uses Display trait to format the values
+                tracing::span!(
+                    Level::INFO,
+                    "request",
+                    method = %request.method(),
+                    uri = %request.uri(),
+                    client_ip = %addr,
+                )
+            })
+            .on_request(DefaultOnRequest::new().level(Level::INFO))
+    );
 
     let port = std::env::var("DISPENSER_API_PORT")
         .unwrap_or_else(|_| "3500".to_string());
 
-    let bind_address = format!("0.0.0.0:{}", port);
+    let bind_address: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
+    info!("Listening on {}", bind_address);
 
-    let listener = tokio::net::TcpListener::bind(&bind_address).await.unwrap();
-    info!("Listening on {}", bind_address.to_string());
+    let listener = tokio::net::TcpListener::bind(bind_address).await.unwrap();
 
     let shutdown_signal = async {
-        // Wait for a shutdown signal (e.g., Ctrl+C)
         tokio::signal::ctrl_c().await.expect("Failed to install Ctrl+C handler");
         info!("Received shutdown signal, shutting down gracefully...");
     };
 
-    tokio::select! {
-        _ = init_server(listener, app) => {},
-        _ = shutdown_signal => {}
-    }
-
-}
-
-async fn init_server(listener: tokio::net::TcpListener, app: Router) {
-    axum::serve(listener, app).await.unwrap();
+    serve(
+        listener,
+        app
+            .into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal)
+    .await
+    .unwrap();
 }

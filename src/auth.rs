@@ -2,7 +2,7 @@ use axum::{
     extract::{FromRequestParts},
     http::{request::Parts, StatusCode}
 };
-use log::{debug, info};
+use tracing::{debug, info};
 use crate::error::ApiError;
 
 pub struct Auth;
