@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use tower_http::trace::{DefaultOnRequest, TraceLayer};
 use tracing::{error, info, Level};
 use axum::extract::ConnectInfo;
+use axum::http::Request;
 
 
 #[tokio::main]
@@ -31,7 +32,7 @@ async fn main() {
     .route("/dispense", get(route::dispense_treat))
     .layer(
         TraceLayer::new_for_http()
-            .make_span_with(|request: &axum::http::Request<_>| {
+            .make_span_with(|request: &Request<_>| {
                 let addr = request
                     .extensions()
                     .get::<ConnectInfo<SocketAddr>>()
