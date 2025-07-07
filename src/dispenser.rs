@@ -1,4 +1,4 @@
-use log::{info};
+use tracing::{info};
 use crate::error::ApiError;
 
 pub fn dispense() -> Result<(), ApiError> {
