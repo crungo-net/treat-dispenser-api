@@ -2,6 +2,7 @@ mod dispenser;
 mod auth;
 mod error;
 mod route;
+mod health;
 
 use axum::{routing::get, serve, Router};
 use std::net::SocketAddr;

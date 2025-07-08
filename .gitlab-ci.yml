@@ -27,6 +27,8 @@ build-and-push:
       --frontend=dockerfile.v0 \
       --local context=. \
       --local dockerfile=. \
+      --opt build-arg:RUST_TARGET=x86_64-unknown-linux-musl \
+      --opt platform=linux/amd64 \
       --import-cache type=registry,ref=${CACHE_IMAGE},ignore-for=src/ \
       --export-cache type=registry,ref=${CACHE_IMAGE},mode=max \
       --opt build-arg:CACHE_BUST=${CACHE_BUST} \
@@ -35,7 +37,58 @@ build-and-push:
       --output type=image,name=${IMAGE}:${SAFE_BRANCH},push=true \
       --output type=local,dest=./dist \
       --opt target=binary-export
+
+    cp dist/treat-dispenser-api dist/treat-dispenser-api-amd64
+
   artifacts:
     paths:
-      - dist/treat-dispenser-api
+      - dist/treat-dispenser-api-amd64
+    expire_in: 1 week
+
+build-and-push-arm64:
+  stage: build
+  image: moby/buildkit:latest
+  tags:
+    - home-lab
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "release"
+    - if: $CI_COMMIT_BRANCH =~ /^arm-test-*/
+  before_script:
+    - mkdir -p ~/.docker
+    - echo '{"auths":{"harbor.crungo.net":{"username":"'"$CI_REGISTRY_USER"'","password":"'"$CI_REGISTRY_PASSWORD"'"}}}' > ~/.docker/config.json
+  script: |
+    export CACHE_IMAGE=harbor.crungo.net/scout/treat-dispenser-api:buildcache-arm64
+    export IMAGE=harbor.crungo.net/scout/treat-dispenser-api-arm64
+    export SHORT_SHA=$(echo "$CI_COMMIT_SHA" | cut -c1-8)
+    export SAFE_BRANCH=$(echo "$CI_COMMIT_BRANCH" | tr '/' '-')
+    export CACHE_BUST=$(date +%s)
+
+    echo "Pushing image with tags:"
+    echo " - ${IMAGE}:latest"
+    echo " - ${IMAGE}:${SHORT_SHA}"
+    echo " - ${IMAGE}:$SAFE_BRANCH"
+    echo "Using cache bust value: ${CACHE_BUST}"
+
+
+    buildctl-daemonless.sh build \
+      --frontend=dockerfile.v0 \
+      --local context=. \
+      --local dockerfile=. \
+      --import-cache type=registry,ref=${CACHE_IMAGE},ignore-for=src/ \
+      --export-cache type=registry,ref=${CACHE_IMAGE},mode=max \
+      --opt build-arg:CACHE_BUST=${CACHE_BUST} \
+      --opt platform=linux/arm64 \
+      --opt build-arg:RUST_TARGET=aarch64-unknown-linux-musl \
+      --output type=image,name=${IMAGE}:latest,push=true \
+      --output type=image,name=${IMAGE}:${SHORT_SHA},push=true \
+      --output type=image,name=${IMAGE}:${SAFE_BRANCH},push=true \
+      --output type=local,dest=./dist \
+      --opt target=binary-export
+    
+    cp dist/treat-dispenser-api dist/treat-dispenser-api-aarch64
+
+  artifacts:
+    paths:
+      - dist/treat-dispenser-api-aarch64
     expire_in: 1 week
