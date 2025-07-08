@@ -23,6 +23,9 @@ run-latest-debug: kill-containers clean
 	docker run -it -p 3500:3500 -e DISPENSER_API_TOKEN=supersecret -e RUST_LOG=debug \
 	--rm ${REGISTRY}/${IMAGE_NAME}:latest
 
+build-pi:
+	./build-pi4-binary.sh
+
 clean:
 	- buildctl prune --all
 	- docker rmi ${FULL_IMAGE}
