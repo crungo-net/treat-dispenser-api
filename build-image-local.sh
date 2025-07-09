@@ -13,6 +13,8 @@ CACHE_IMAGE="${IMAGE_NAME}-localbuildcache"
 
 buildctl build \
   --frontend=dockerfile.v0 \
+  --no-cache \
+  --progress=plain \
   --import-cache type=registry,ref=${CACHE_IMAGE} \
   --export-cache type=registry,ref=${CACHE_IMAGE},mode=max \
   --local context=. \
@@ -24,6 +26,7 @@ echo "Exporting binary to dist directory..."
 
 buildctl build \
   --frontend=dockerfile.v0 \
+  --progress=plain \
   --import-cache type=registry,ref=${CACHE_IMAGE} \
   --export-cache type=registry,ref=${CACHE_IMAGE},mode=max \
   --local context=. \
