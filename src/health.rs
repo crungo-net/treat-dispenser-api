@@ -42,6 +42,8 @@ impl DispenserState {
             }
         };
 
+        // todo: Initialize GPIO pins for the treat dispenser here
+
         Self {
             gpio,
             status: DispenserStatus::Unknown,

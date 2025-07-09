@@ -35,10 +35,9 @@ async fn main() {
         info!("DISPENSER_API_TOKEN is set");
     }
 
-    // Initialize hardware state.
-    // This state will be shared across requests.
-    // Hardware state must be shared across threads
-    // so we use Arc and Mutex to allow safe concurrent access.
+    // Initialize hardware state that will be shared across requests.
+    // Hardware state must be shared across threads so we use Arc and Mutex to 
+    // allow safe concurrent access.
     let hw_state = Arc::new(Mutex::new(health::DispenserState::new()));
 
     let app = Router::new()
@@ -46,7 +45,7 @@ async fn main() {
     .route("/health", get(route::health_check))
     .route("/health/detailed", get(route::detailed_health))
     .route("/dispense", get(route::dispense_treat))
-    .with_state(hw_state) // Add state to the router
+    .with_state(hw_state)
     .layer(
         TraceLayer::new_for_http()
             .make_span_with(|request: &Request<_>| {
