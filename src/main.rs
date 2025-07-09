@@ -3,13 +3,16 @@ mod auth;
 mod error;
 mod route;
 mod health;
+mod response;
 
 use axum::{routing::get, serve, Router};
 use std::net::SocketAddr;
+use std::sync::{Arc, Mutex};
 use tower_http::trace::{DefaultOnRequest, TraceLayer};
 use tracing::{error, info, Level};
 use axum::extract::ConnectInfo;
 use axum::http::Request;
+use tracing_subscriber::EnvFilter;
 
 
 #[tokio::main]
@@ -17,6 +20,11 @@ async fn main() {
     dotenv::dotenv().ok();
 
     tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::try_from_env("RUST_LOG")
+            .unwrap_or_else(|_| {
+                info!("RUST_LOG not set, using default log level 'info'");
+                EnvFilter::new("info") // Default log level if not set
+            }))
         .with_writer(std::io::stdout) // log to stdout for compat with containerized environments
         .init();
 
@@ -27,10 +35,18 @@ async fn main() {
         info!("DISPENSER_API_TOKEN is set");
     }
 
+    // Initialize hardware state.
+    // This state will be shared across requests.
+    // Hardware state must be shared across threads
+    // so we use Arc and Mutex to allow safe concurrent access.
+    let hw_state = Arc::new(Mutex::new(health::DispenserState::new()));
+
     let app = Router::new()
     .route("/", get(route::root))
     .route("/health", get(route::health_check))
+    .route("/health/detailed", get(route::detailed_health))
     .route("/dispense", get(route::dispense_treat))
+    .with_state(hw_state) // Add state to the router
     .layer(
         TraceLayer::new_for_http()
             .make_span_with(|request: &Request<_>| {
