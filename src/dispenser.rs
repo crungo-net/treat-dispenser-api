@@ -10,6 +10,10 @@ use tokio::sync::Mutex;
 use rppal::gpio::{Gpio};
 
 
+pub enum StepMode {
+    FullStepDoubleCoil,
+    Half,
+}
 
 /// Dispenses treats by controlling GPIO pins for a stepper motor.
 /// This function updates the dispenser state to "Dispensing" before starting the dispensing process.
@@ -39,7 +43,7 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
     tokio::spawn(async move {
         // Handle the blocking motor control in a separate thread
         let result = tokio::task::spawn_blocking(move || {
-            trigger_motor(512)
+            trigger_motor(512, StepMode::FullStepDoubleCoil)
         }).await;
 
         // Handle the result back in the async context
@@ -88,20 +92,46 @@ async fn set_error_status(hw_state: &Arc<Mutex<DispenserState>>) {
     }
 }
 
-fn trigger_motor(number_of_steps: u16) -> Result<(), String> {
-    // this sequence is for a 4-phase stepper motor, where each sub-array represents
+pub fn trigger_motor(cycles: u16, step_mode: StepMode) -> Result<(), String> {
+    // this sequence is for a 4-phase stepper motor (28BYJ-48), where each sub-array represents
     // the state of the pins [pin1, pin2, pin3, pin4]
     // 1 means HIGH, 0 means LOW
-    let step_sequence = [
-        [1, 0, 0, 0],
-        [1, 1, 0, 0],
-        [0, 1, 0, 0],
-        [0, 1, 1, 0],
-        [0, 0, 1, 0],
-        [0, 0, 1, 1],
-        [0, 0, 0, 1],
-        [1, 0, 0, 1],
-    ];
+    // A pin being HIGH means the corresponding coil is energized, LOW means it is not
+
+    let delay_between_steps_ms: u64;
+    let step_sequence: Vec<[u8; 4]> = match step_mode {
+
+        // 4096 steps for a full rotation in half step mode
+        StepMode::Half => {
+            info!("Using half step mode");
+            delay_between_steps_ms = 1; 
+            vec![
+                [1, 0, 0, 0],
+                [1, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 1],
+                [0, 0, 0, 1],
+                [1, 0, 0, 1],
+            ]
+        },
+        // 2048 steps for a full rotation in full step mode
+        // 2048/4 = 512 cycles needed for full rotation
+        // more torque than half step mode due to two coils being energized at once
+        // but needs more time in between steps to avoid overheating
+        StepMode::FullStepDoubleCoil => {
+            info!("Using full step mode");
+            delay_between_steps_ms = 2; 
+            vec![
+                [1, 1, 0, 0],
+                [0, 1, 1, 0],
+                [0, 0, 1, 1],
+                [1, 0, 0, 1],
+            ]
+        },
+    };
+
 
     match Gpio::new() {
         Ok(gpio) => {
@@ -110,25 +140,25 @@ fn trigger_motor(number_of_steps: u16) -> Result<(), String> {
             let mut pin3 = get_pin(&gpio, 13)?;
             let mut pin4 = get_pin(&gpio, 6)?;  
             
-            info!("Starting motor with {} steps", number_of_steps);
-            for _ in 0..number_of_steps {
+            info!("Starting motor with {} steps", cycles);
+            for _ in 0..cycles {
                 for step in step_sequence.iter() {
                     pin1.write(step[0].into());
                     pin2.write(step[1].into());
                     pin3.write(step[2].into());
                     pin4.write(step[3].into());
-                    std::thread::sleep(Duration::from_millis(1));
+                    std::thread::sleep(Duration::from_millis(delay_between_steps_ms));
                 }
             }
-            info!("Motor operation completed, entering cooldown period");
-            
-            // regardless of how long dispensing takes, we enforce a 5 second cooldown
-            std::thread::sleep(Duration::from_millis(5000));
             
             pin1.write(Low);
             pin2.write(Low);
             pin3.write(Low);
             pin4.write(Low);
+            info!("Motor operation completed, entering cooldown period");
+            
+            // regardless of how long dispensing takes, we enforce a 5 second cooldown
+            std::thread::sleep(Duration::from_millis(5000));
             
             Ok(())
         },

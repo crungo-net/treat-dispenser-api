@@ -16,7 +16,6 @@ pub async fn dispense_treat(
     State(hw_state): State<Arc<Mutex<state::DispenserState>>>,
 ) -> Result<&'static str, ApiError> {
     dispenser::dispense(hw_state).await?;
-    // Return a response indicating the process has started, not completed
     Ok("Dispensing started, please wait...")
 }
 
