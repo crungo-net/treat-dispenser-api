@@ -31,71 +31,12 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
     }; // Lock is released here
 
     info!("Dispensing treatos...");
-    
-    let step_sequence = [
-        [1, 0, 0, 0],
-        [1, 1, 0, 0],
-        [0, 1, 0, 0],
-        [0, 1, 1, 0],
-        [0, 0, 1, 0],
-        [0, 0, 1, 1],
-        [0, 0, 0, 1],
-        [1, 0, 0, 1],
-    ];
 
     // Spawn a task that manages the blocking work
     tokio::spawn(async move {
-        // Move the CPU-intensive work and hardware operation to a dedicated OS thread
-        // std::thread::sleep in a Tokio task blocks the entire Tokio runtime,
-        // so we use spawn_blocking to run this in a separate thread.
-        debug!("Starting treat dispensing logic in a blocking task...");
+        // Handle the blocking motor control in a separate thread
         let result = tokio::task::spawn_blocking(move || {
-            // This runs in a separate OS thread and won't block the Tokio runtime
-            match Gpio::new() {
-                Ok(gpio) => {
-                    let mut pin1 = match gpio.get(26).map(|p| p.into_output()) {
-                        Ok(p) => p,
-                        Err(e) => return Err(format!("Failed to get pin 26: {}", e)),
-                    };
-                    
-                    let mut pin2 = match gpio.get(19).map(|p| p.into_output()) {
-                        Ok(p) => p,
-                        Err(e) => return Err(format!("Failed to get pin 19: {}", e)),
-                    };
-                    
-                    let mut pin3 = match gpio.get(13).map(|p| p.into_output()) {
-                        Ok(p) => p,
-                        Err(e) => return Err(format!("Failed to get pin 13: {}", e)),
-                    };
-                    
-                    let mut pin4 = match gpio.get(6).map(|p| p.into_output()) {
-                        Ok(p) => p,
-                        Err(e) => return Err(format!("Failed to get pin 6: {}", e)),
-                    };
-                    
-                    // std::thread::sleep is fine here since we're in a dedicated thread
-                    for _ in 0..512 {
-                        for step in step_sequence.iter() {
-                            pin1.write(if step[0] == 1 { High } else { Low });
-                            pin2.write(if step[1] == 1 { High } else { Low });
-                            pin3.write(if step[2] == 1 { High } else { Low });
-                            pin4.write(if step[3] == 1 { High } else { Low });
-                            std::thread::sleep(Duration::from_millis(1));
-                        }
-                    }
-                    
-                    // regardless of how long dispensing takes, we enforce a 5 second cooldown
-                    std::thread::sleep(Duration::from_millis(5000));
-                    
-                    pin1.write(Low);
-                    pin2.write(Low);
-                    pin3.write(Low);
-                    pin4.write(Low);
-                    
-                    Ok(())
-                },
-                Err(e) => Err(format!("Failed to create GPIO: {}", e)),
-            }
+            trigger_motor(512)
         }).await;
 
         // Handle the result back in the async context
@@ -128,8 +69,6 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
         }
     });
 
-    // return immediately, the dispensing process is handled in the background
-    // clients will need to poll or check the status later
     info!("Dispensing process started in the background.");
     Ok(())
 }
@@ -144,4 +83,58 @@ async fn set_error_status(hw_state: &Arc<Mutex<DispenserState>>) {
             state_guard.status = DispenserStatus::Unknown;
         }
     }
+}
+
+fn trigger_motor(number_of_steps: u16) -> Result<(), String> {
+    // this sequence is for a 4-phase stepper motor, where each sub-array represents
+    // the state of the pins [pin1, pin2, pin3, pin4]
+    // 1 means HIGH, 0 means LOW
+    let step_sequence = [
+        [1, 0, 0, 0],
+        [1, 1, 0, 0],
+        [0, 1, 0, 0],
+        [0, 1, 1, 0],
+        [0, 0, 1, 0],
+        [0, 0, 1, 1],
+        [0, 0, 0, 1],
+        [1, 0, 0, 1],
+    ];
+
+    match Gpio::new() {
+        Ok(gpio) => {
+            let mut pin1 = get_pin(&gpio, 26)?;
+            let mut pin2 = get_pin(&gpio, 19)?;
+            let mut pin3 = get_pin(&gpio, 13)?;
+            let mut pin4 = get_pin(&gpio, 6)?;  
+            
+            info!("Starting motor with {} steps", number_of_steps);
+            for _ in 0..number_of_steps {
+                for step in step_sequence.iter() {
+                    pin1.write(step[0].into());
+                    pin2.write(step[1].into());
+                    pin3.write(step[2].into());
+                    pin4.write(step[3].into());
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            }
+            info!("Motor operation completed, entering cooldown period");
+            
+            // regardless of how long dispensing takes, we enforce a 5 second cooldown
+            std::thread::sleep(Duration::from_millis(5000));
+            
+            pin1.write(Low);
+            pin2.write(Low);
+            pin3.write(Low);
+            pin4.write(Low);
+            
+            Ok(())
+        },
+        Err(e) => Err(format!("Failed to create local Gpio instance: {}", e)),
+    }
+}
+
+fn get_pin(gpio: &Gpio, gpio_pin_num: u8) -> Result<rppal::gpio::OutputPin, String> {
+    gpio.get(gpio_pin_num)
+        .map(|p| p.into_output())
+        .map_err(|e| format!("Failed to get pin {}: {}", gpio_pin_num, e))
 }
