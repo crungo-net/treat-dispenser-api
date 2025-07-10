@@ -27,6 +27,8 @@ async fn main() {
                 EnvFilter::new("info") // Default log level if not set
             }),
         )
+        .with_thread_ids(true)
+        .with_thread_names(true)
         .with_writer(std::io::stdout) // log to stdout for compat with containerized environments
         .init();
 
@@ -55,9 +57,7 @@ async fn main() {
                         .map(|ConnectInfo(addr)| addr.to_string())
                         .unwrap_or_else(|| "unknown".to_string());
 
-                    let thread_id = format!("{:?}", thread::current().id());
-
-                    // display format: "method=GET uri=/dispense client_ip=0.0.0.0 thread=ThreadId"
+                    // display format: "method=GET uri=/dispense client_ip=0.0.0.0 
                     // the % is special syntax for formatting in tracing
                     // uses Display trait to format the values
                     tracing::span!(
@@ -66,7 +66,6 @@ async fn main() {
                         method = %request.method(),
                         uri = %request.uri(),
                         client_ip = %addr,
-                        thread = %thread_id
                     )
                 })
                 .on_request(DefaultOnRequest::new().level(Level::INFO)),
