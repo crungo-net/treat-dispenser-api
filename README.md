@@ -6,8 +6,11 @@ A simple REST API for controlling a treat dispenser, built with [Axum](https://g
 
 - **Dispense treats** via a REST endpoint
 - **Authorization** using a bearer token
-- **Structured logging** with `env_logger`
-- Ready for hardware integration (see `dispenser.rs`)
+- **Structured logging** with [`tracing`](https://docs.rs/tracing/)
+- **Thread ID tracking** in logs
+- **Hardware integration** with GPIO control for stepper motors
+- **Graceful shutdown** support
+- **Docker support** for containerized deployment
 
 ## Endpoints
 
@@ -21,7 +24,7 @@ curl http://localhost:3500/
 ```
 _Response:_
 ```
-Treat dispenser is online!
+Treat dispenser is online! Binky time!
 ```
 
 ---
@@ -37,8 +40,37 @@ curl -H "Authorization: Bearer <YOUR_TOKEN>" http://localhost:3500/dispense
 ```
 
 _Response:_
-- `Treat dispensed successfully!` on success
-- `Failed to dispense treat.` on error
+- `Dispensing started, please wait...` on success
+- Error message with appropriate status code on failure
+
+---
+
+### `GET /health`
+
+Simple health check endpoint.
+
+**Example:**
+```sh
+curl http://localhost:3500/health
+```
+
+_Response:_
+```
+OK
+```
+
+---
+
+### `GET /health/detailed`
+
+Returns detailed health status information including GPIO availability, motor status, and uptime.
+
+**Example:**
+```sh
+curl http://localhost:3500/health/detailed
+```
+
+_Response:_ JSON object containing system status information.
 
 ## Setup
 
@@ -48,6 +80,8 @@ _Response:_
    Create a `.env` file or set these in your environment:
    ```
    DISPENSER_API_TOKEN=your_secret_token
+   DISPENSER_API_PORT=3500  # Optional, defaults to 3500
+   RUST_LOG=info  # Optional, controls log level
    ```
 
 3. **Run the server**
@@ -55,36 +89,79 @@ _Response:_
    cargo run
    ```
 
-   The server will listen on `0.0.0.0:3500`.
+   The server will listen on `0.0.0.0:3500` by default or the port specified in your environment.
 
 4. **Test the endpoints**  
    Use `curl` or any HTTP client.
 
 ## Logging
 
-- Logs are output to stdout.
+- Logs are output to stdout with thread IDs and names included.
 - Log level can be set with the `RUST_LOG` environment variable (default: `info`).
 - Example:  
   ```sh
   RUST_LOG=debug cargo run
   ```
 
+## Docker Support
+
+Build and run the application in a Docker container:
+
+```sh
+# Build the image
+make build
+
+# Run with debug logging
+make run-debug
+
+# Push to registry
+make push
+```
+
+## Hardware Integration
+
+The application is designed to control a 28BYJ-48 stepper motor (with a ULN2003 driver) connected via GPIO pins:
+
+- Pin 26: Motor coil 1
+- Pin 19: Motor coil 2
+- Pin 13: Motor coil 3
+- Pin 6: Motor coil 4
+
+Supports both half-step and full-step (double coil) operation modes.
+
 ## Code Structure
 
-- `main.rs` – Application entry point, sets up routes and logging.
-- `dispenser.rs` – Treat dispensing logic (placeholder for hardware integration).
-- `auth.rs` – Authorization extractor for validating API requests.
+- `src/main.rs` – Application entry point, sets up routes, logging, and server.
+- `src/dispenser.rs` – Treat dispensing logic with stepper motor control.
+- `src/state.rs` – System state tracking and health monitoring.
+- `src/auth.rs` – Authorization extractor for validating API requests.
+- `src/error.rs` – Error handling and HTTP response mapping.
+- `src/route.rs` – API endpoint implementations.
 
 ## Requirements
 
 - Rust (edition 2021 or later)
 - [Axum](https://github.com/tokio-rs/axum)
 - [tokio](https://tokio.rs/)
-- [env_logger](https://docs.rs/env_logger/)
+- [tracing](https://docs.rs/tracing/)
+- [rppal](https://docs.rs/rppal/) for Raspberry Pi GPIO control
 - [dotenv](https://docs.rs/dotenv/)
+
+## Continuous Integration (CI)
+
+This project uses a GitLab CI pipeline (see `.gitlab-ci.yml`) to automate building and publishing container images for multiple architectures.
+
+- **Build System:** Uses [moby/buildkit](https://github.com/moby/buildkit) for efficient Docker builds and caching.
+- **Multi-Arch Builds:**
+  - `build-and-push` builds and pushes an x86_64 (amd64) image.
+  - `build-and-push-arm64` builds and pushes an ARM64 image (runs on `main`, `release`, or `arm-test-*` branches).
+- **Image Tags:** Each build pushes images with tags for `latest`, the short commit SHA, and the branch name.
+- **Build Caching:** Build cache is stored in the registry to speed up subsequent builds.
+- **Artifacts:** The built binaries for each architecture are saved as CI artifacts for one week.
+- **Authentication:** Docker credentials are injected for pushing to the private registry (`harbor.crungo.net`).
 
 ## License
 
 MIT
 
----
+
