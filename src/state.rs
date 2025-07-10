@@ -11,9 +11,9 @@ pub enum DispenserStatus {
     Operational,
     Jammed,
     Empty,
-    Disconnected,
     Unknown,
-    MotorControlError
+    MotorControlError,
+    NoGpio,
 }
 
 #[derive(Serialize, Debug)]
@@ -35,13 +35,17 @@ pub struct DispenserState {
 
 impl DispenserState {
     pub fn new() -> Self {
+        let status: DispenserStatus;
+
         let gpio = match Gpio::new() {
             Ok(gpio) => {
                 info!("GPIO initialized successfully");
+                status = DispenserStatus::Operational;
                 Some(gpio)
             }
             Err(e) => {
                 error!("Failed to initialize GPIO: {}", e);
+                status = DispenserStatus::NoGpio;
                 None
             }
         };
@@ -49,7 +53,7 @@ impl DispenserState {
 
         Self {
             gpio,
-            status: DispenserStatus::Operational,
+            status,
             startup_time: SystemTime::now(),
             last_dispense_time: None,
         }
