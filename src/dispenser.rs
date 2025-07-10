@@ -17,18 +17,21 @@ use rppal::gpio::{Gpio};
 /// does not affect API responsiveness.
 /// After dispensing, it updates the state to "Operational" and records the last dispense time.
 pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiError> {
-    // Check GPIO and update status first
     {
         let mut state_guard = hw_state.lock().await;
-        if state_guard.status == DispenserStatus::Dispensing {
-            return Err(ApiError::Busy("Must wait for previous operation to complete".to_string()));
-        }
-        if state_guard.gpio.is_none() {
-            return Err(ApiError::Hardware("GPIO not initialized".to_string()));
+        match state_guard.status {
+            DispenserStatus::Operational => {},
+            DispenserStatus::Dispensing => {
+                return Err(ApiError::Busy("Dispenser is already dispensing".to_string()));
+            },
+            DispenserStatus::Empty => {
+                return Err(ApiError::Hardware("Dispenser is empty".to_string()));
+            },
+            _ => return Err(ApiError::Hardware(format!("Dispenser is not operational (current status: {:?})", state_guard.status))),
         }
         
         state_guard.status = DispenserStatus::Dispensing;
-    }; // Lock is released here
+    }; // Lock is released here, we want to avoid holding the lock for long periods so other tasks can access the state
 
     info!("Dispensing treatos...");
 
