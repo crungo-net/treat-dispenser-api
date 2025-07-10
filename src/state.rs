@@ -1,25 +1,29 @@
 use rppal::gpio::Gpio;
 use serde::Serialize;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::SystemTime;
-use tracing::{info, error};
+use tokio::sync::Mutex;
+use tracing::{error, info};
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, PartialEq)]
 pub enum DispenserStatus {
+    Dispensing,
     Operational,
     Jammed,
     Empty,
     Disconnected,
     Unknown,
+    MotorControlError
 }
 
 #[derive(Serialize, Debug)]
 pub struct HealthStatus {
-    pub hardware_connected: bool,
+    pub gpio_available: bool,
     pub motor_operational: bool,
     pub treats_available: bool,
     pub last_dispensed: Option<String>,
     pub uptime_seconds: u64,
+    pub dispenser_status: DispenserStatus,
 }
 
 pub struct DispenserState {
@@ -38,31 +42,30 @@ impl DispenserState {
             }
             Err(e) => {
                 error!("Failed to initialize GPIO: {}", e);
-                None    
+                None
             }
         };
 
-        // todo: Initialize GPIO pins for the treat dispenser here
 
         Self {
             gpio,
-            status: DispenserStatus::Unknown,
+            status: DispenserStatus::Operational,
             startup_time: SystemTime::now(),
             last_dispense_time: None,
         }
     }
+
 }
 
-pub fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus {
-    let state_guard = state.lock().unwrap();
+pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus {
+    let state_guard = state.lock().await;
     let now = SystemTime::now();
 
-    let hw_connected = state_guard.gpio.is_some();
+    let gpio_available = state_guard.gpio.is_some();
 
     let treats_available = match &state_guard.gpio {
         Some(gpio) => {
-            // Placeholder for actual GPIO pin check logic
-            // In a real application, this would check if the treat dispenser has treats available
+            // Placeholder for sensor logic to check if treats are available
             true
         }
         None => false,
@@ -71,7 +74,6 @@ pub fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus {
     let motor_operational = match &state_guard.gpio {
         Some(gpio) => {
             // Placeholder for actual motor operational check logic
-            // In a real application, this would check if the motor is functioning correctly
             true
         }
         None => false,
@@ -85,11 +87,11 @@ pub fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus {
     let last_dispensed = state_guard.last_dispense_time.clone();
 
     HealthStatus {
-        hardware_connected: hw_connected,
+        gpio_available,
         motor_operational: motor_operational,
         treats_available: treats_available,
         last_dispensed: last_dispensed,
         uptime_seconds: uptime_seconds,
+        dispenser_status: state_guard.status.clone(),
     }
 }
-
