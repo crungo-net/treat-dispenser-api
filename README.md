@@ -127,7 +127,23 @@ The application is designed to control a 28BYJ-48 stepper motor (with a ULN2003 
 - Pin 13: Motor coil 3
 - Pin 6: Motor coil 4
 
-Supports both half-step and full-step (double coil) operation modes.
+Supported step modes for 28BYJ-48:
+- **Full step** (2048 steps per rotation, more torque, slower to avoid overheating)
+- **Half step** (4096 steps per rotation, smoother motion)
+
+Other step modes (quarter, eighth, sixteenth) are defined but not implemented for this motor.
+Support for the NEMA-14 motor type and the A4988 stepper driver is planned.
+
+The motor control logic enforces a 5-second cooldown after each dispensing operation to protect hardware.
+
+### Motor Type Configuration
+
+You can configure which motor type is used by setting the `MOTOR_TYPE` environment variable. The default is `Stepper28BYJ48`.
+
+Example for 28BYJ-48 (default):
+```
+MOTOR_TYPE=Stepper28BYJ48 cargo run
+```
 
 ## Code Structure
 

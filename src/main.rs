@@ -4,6 +4,7 @@ mod error;
 mod response;
 mod route;
 mod state;
+mod motor;
 
 use axum::extract::ConnectInfo;
 use axum::http::Request;

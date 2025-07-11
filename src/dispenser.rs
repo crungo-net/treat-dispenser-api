@@ -1,19 +1,13 @@
 use crate::error::ApiError;
 use crate::state::{DispenserState};
 use chrono::{DateTime, Local};
-use rppal::gpio::{Level::High, Level::Low};
 use std::sync::{Arc};
 use std::{time::Duration};
 use tracing::{debug, info, error};
 use crate::state::DispenserStatus;
 use tokio::sync::Mutex;
-use rppal::gpio::{Gpio};
+use crate::motor::{self, StepperMotor};
 
-
-pub enum StepMode {
-    FullStepDoubleCoil,
-    Half,
-}
 
 /// Dispenses treats by controlling GPIO pins for a stepper motor.
 /// This function updates the dispenser state to "Dispensing" before starting the dispensing process.
@@ -21,6 +15,19 @@ pub enum StepMode {
 /// does not affect API responsiveness.
 /// After dispensing, it updates the state to "Operational" and records the last dispense time.
 pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiError> {
+    let motor_result = select_motor(
+        std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string())
+    );
+    match motor_result {
+        Ok(_) => info!("Motor selected successfully."),
+        Err(e) => {
+            error!("Failed to select motor: {}", e);
+            return Err(ApiError::Hardware(e));
+        }
+    }
+    let motor = motor_result.unwrap();
+
+    // query status and set to "Dispensing" before starting the process
     {
         let mut state_guard = hw_state.lock().await;
         match state_guard.status {
@@ -43,7 +50,8 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
     tokio::spawn(async move {
         // Handle the blocking motor control in a separate thread
         let result = tokio::task::spawn_blocking(move || {
-            trigger_motor(512, StepMode::FullStepDoubleCoil)
+            let step_count = motor.get_step_count_for_full_rotation(motor::StepMode::Full);
+            motor.run_motor(step_count.into(), motor::Direction::Clockwise, motor::StepMode::Full)
         }).await;
 
         // Handle the result back in the async context
@@ -92,82 +100,10 @@ async fn set_error_status(hw_state: &Arc<Mutex<DispenserState>>) {
     }
 }
 
-pub fn trigger_motor(cycles: u16, step_mode: StepMode) -> Result<(), String> {
-    // this sequence is for a 4-phase stepper motor (28BYJ-48), where each sub-array represents
-    // the state of the pins [pin1, pin2, pin3, pin4]
-    // 1 means HIGH, 0 means LOW
-    // A pin being HIGH means the corresponding coil is energized, LOW means it is not
-
-    let delay_between_steps_ms: u64;
-    let step_sequence: Vec<[u8; 4]> = match step_mode {
-
-        // 4096 steps for a full rotation in half step mode
-        StepMode::Half => {
-            info!("Using half step mode");
-            delay_between_steps_ms = 1; 
-            vec![
-                [1, 0, 0, 0],
-                [1, 1, 0, 0],
-                [0, 1, 0, 0],
-                [0, 1, 1, 0],
-                [0, 0, 1, 0],
-                [0, 0, 1, 1],
-                [0, 0, 0, 1],
-                [1, 0, 0, 1],
-            ]
-        },
-        // 2048 steps for a full rotation in full step mode
-        // 2048/4 = 512 cycles needed for full rotation
-        // more torque than half step mode due to two coils being energized at once
-        // but needs more time in between steps to avoid overheating
-        StepMode::FullStepDoubleCoil => {
-            info!("Using full step mode");
-            delay_between_steps_ms = 2; 
-            vec![
-                [1, 1, 0, 0],
-                [0, 1, 1, 0],
-                [0, 0, 1, 1],
-                [1, 0, 0, 1],
-            ]
-        },
-    };
-
-
-    match Gpio::new() {
-        Ok(gpio) => {
-            let mut pin1 = get_pin(&gpio, 26)?;
-            let mut pin2 = get_pin(&gpio, 19)?;
-            let mut pin3 = get_pin(&gpio, 13)?;
-            let mut pin4 = get_pin(&gpio, 6)?;  
-            
-            info!("Starting motor with {} steps", cycles);
-            for _ in 0..cycles {
-                for step in step_sequence.iter() {
-                    pin1.write(step[0].into());
-                    pin2.write(step[1].into());
-                    pin3.write(step[2].into());
-                    pin4.write(step[3].into());
-                    std::thread::sleep(Duration::from_millis(delay_between_steps_ms));
-                }
-            }
-            
-            pin1.write(Low);
-            pin2.write(Low);
-            pin3.write(Low);
-            pin4.write(Low);
-            info!("Motor operation completed, entering cooldown period");
-            
-            // regardless of how long dispensing takes, we enforce a 5 second cooldown
-            std::thread::sleep(Duration::from_millis(5000));
-            
-            Ok(())
-        },
-        Err(e) => Err(format!("Failed to create local Gpio instance: {}", e)),
+fn select_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
+    match motor_type.as_str() {
+        "Stepper28BYJ48" => Ok(Box::new(motor::Stepper28BYJ48::new())),
+        // Add more motor types here as needed
+        _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }
-}
-
-fn get_pin(gpio: &Gpio, gpio_pin_num: u8) -> Result<rppal::gpio::OutputPin, String> {
-    gpio.get(gpio_pin_num)
-        .map(|p| p.into_output())
-        .map_err(|e| format!("Failed to get pin {}: {}", gpio_pin_num, e))
 }
