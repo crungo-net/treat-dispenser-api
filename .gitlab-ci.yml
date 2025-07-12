@@ -100,7 +100,7 @@ release-github:
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
-  depends_on:
+  dependencies:
     - build-and-push
     - build-and-push-arm64
   before_script:
