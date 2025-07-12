@@ -92,8 +92,7 @@ tag-release:
   stage: deploy
   image: harbor.crungo.net/docker-proxy/library/ubuntu:24.04
   rules:
-    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[A-Za-z0-9\.\_]+)?(\+[A-Za-z0-9\.\_]+)?$/'
-      when: always
+    - if: '$CI_COMMIT_BRANCH == "main"'
   before_script:
     - apt-get update && apt-get install -y ca-certificates git
   script: |
