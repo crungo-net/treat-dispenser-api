@@ -25,6 +25,8 @@ pub struct HealthStatus {
     pub last_dispensed: Option<String>,
     pub uptime_seconds: u64,
     pub dispenser_status: DispenserStatus,
+    pub last_error_msg: Option<String>,
+    pub last_error_time: Option<String>,
 }
 
 pub struct DispenserState {
@@ -32,6 +34,8 @@ pub struct DispenserState {
     pub status: DispenserStatus,
     pub startup_time: SystemTime,
     pub last_dispense_time: Option<String>,
+    pub last_error_msg: Option<String>,
+    pub last_error_time: Option<String>,
 }
 
 impl DispenserState {
@@ -57,6 +61,8 @@ impl DispenserState {
             status,
             startup_time: SystemTime::now(),
             last_dispense_time: None,
+            last_error_msg: None,
+            last_error_time: None,
         }
     }
 
@@ -97,6 +103,8 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
         treats_available: treats_available,
         last_dispensed: last_dispensed,
         uptime_seconds: uptime_seconds,
+        last_error_msg: state_guard.last_error_msg.clone(),
+        last_error_time: state_guard.last_error_time.clone(),
         dispenser_status: state_guard.status.clone(),
     }
 }
