@@ -100,7 +100,7 @@ tag-release:
     VERSION=$(grep '^version =' Cargo.toml | head -1 | sed -E "s/version = \"([^\"]+)\"/\1/")
     echo "Version: $VERSION"
 
-    TAG = "v$VERSION"
+    TAG="v$VERSION"
 
     git tag "$TAG" "$CI_COMMIT_SHA"
     git push "https://GITLAB_PUSH_USER:${GITLAB_PAT}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$TAG"
