@@ -95,6 +95,8 @@ tag-release:
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always  # change to manual for human-triggered tagging and release to github
+  before_script:
+    - apt-get update && apt-get install -y ca-certificates git
   script: |
     set -ex
     TAG="v$(date +%Y%m%d)-$CI_COMMIT_SHORT_SHA"
@@ -113,7 +115,7 @@ release-github:
     - build-arm64-binary
     - tag-release
   before_script:
-    - apt-get update && apt-get install -y gh jq ca-certificates git
+    - apt-get update && apt-get install -y gh jq ca-certificates
   script: |
     set -ex
     ls -lh dist/
