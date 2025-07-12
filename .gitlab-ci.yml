@@ -50,7 +50,7 @@ build-and-push-arm64:
   stage: build
   image: moby/buildkit:latest
   tags:
-    - home-lab
+    - fast
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_COMMIT_BRANCH == "release"
