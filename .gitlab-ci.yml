@@ -127,7 +127,7 @@ release-github:
       dist/treat-dispenser-api-aarch64 \
       --repo github.com/crungo-net/treat-dispenser-api \
       --title "$RELEASE_NAME" \
-      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA on branch $CI_COMMIT_BRANCH."
+      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA for tag $TAG"
 
 
   variables:
