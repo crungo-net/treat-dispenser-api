@@ -100,20 +100,25 @@ release-github:
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
-  dependencies:
-    - build-and-push
-    - build-and-push-arm64
+
+  needs:
+    - job: build-and-push
+      artifacts: true
   before_script:
     - apt-get update && apt-get install -y gh jq
-  script: |
-    TAG="v$(date +%Y%m%d)-$CI_COMMIT_SHORT_SHA"
-    RELEASE_NAME="Treat Dispenser API $TAG"
-    echo $GITHUB_TOKEN | gh auth login --with-token
-    gh release create "$TAG" \
-      dist/treat-dispenser-api-amd64 \
-      dist/treat-dispenser-api-aarch64 \
-      --repo github.com/github.com/crungo-net/treat-dispenser-api \
-      --title "$RELEASE_NAME" \
-      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA on branch $CI_COMMIT_BRANCH."
+  script: 
+    - set -ex
+    - ls -lh dist/
+    - TAG="v$(date +%Y%m%d)-$CI_COMMIT_SHORT_SHA"
+    - RELEASE_NAME="Treat Dispenser API $TAG"
+    - echo "$GITHUB_TOKEN" | gh auth login --with-token
+    - gh release create "$TAG" \
+        dist/treat-dispenser-api-amd64 \
+        dist/treat-dispenser-api-aarch64 \
+        --repo github.com/<USER>/<REPO> \
+        --title "$RELEASE_NAME" \
+        --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA on branch $CI_COMMIT_BRANCH."
+
+
   variables:
     GITHUB_TOKEN: $GITHUB_TOKEN # from GitLab CI/CD variables
