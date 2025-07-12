@@ -1,10 +1,13 @@
+variables:
+  DOCKER_AUTH_CONFIG: '{"auths":{"harbor.crungo.net":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"}}}'
+
 stages:
   - build
   - deploy
 
 build-and-push:
   stage: build
-  image: moby/buildkit:latest
+  image: harbor.crungo.net/docker-proxy/moby/buildkit:latest
   tags:
     - home-lab
   before_script:
@@ -51,7 +54,8 @@ build-and-push:
 # and we can use the native Rust toolchain to build for ARM64 directly
 build-arm64-binary:
   stage: build
-  image: rust:1.88
+  # for official Docker Hub images, we need to use the 'library' namespace
+  image: harbor.crungo.net/docker-proxy/library/rust:1.88
   tags:
     - fast
   script:
@@ -78,7 +82,7 @@ build-arm64-binary:
   
 release-github:
   stage: deploy
-  image: ubuntu:24.04
+  image: harbor.crungo.net/docker-proxy/ubuntu:24.04
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
