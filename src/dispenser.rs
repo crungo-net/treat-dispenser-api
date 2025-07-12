@@ -1,12 +1,12 @@
 use crate::error::ApiError;
-use crate::state::{DispenserState};
+use crate::state::{DispenserState, set_dispenser_status};
 use chrono::{DateTime, Local};
 use std::sync::{Arc};
 use std::{time::Duration};
 use tracing::{debug, info, error};
 use crate::state::DispenserStatus;
 use tokio::sync::Mutex;
-use crate::motor::{self, StepperMotor};
+use crate::motor::{self, StepperMotor, Direction, StepMode};
 
 
 /// Dispenses treats by controlling GPIO pins for a stepper motor.
@@ -27,37 +27,48 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
     }
     let motor = motor_result.unwrap();
 
-    // query status and set to "Dispensing" before starting the process
+    // query status before starting the process, done atomically to avoid race conditions
     {
         let mut state_guard = hw_state.lock().await;
         match state_guard.status {
-            DispenserStatus::Operational => {},
+            DispenserStatus::Operational => {
+                state_guard.status = DispenserStatus::Dispensing;
+            },
             DispenserStatus::Dispensing => {
                 return Err(ApiError::Busy("Dispenser is already dispensing".to_string()));
+            },
+            DispenserStatus::Cooldown=> {
+                return Err(ApiError::Busy("Waiting for cooldown".to_string()));
             },
             DispenserStatus::Empty => {
                 return Err(ApiError::Hardware("Dispenser is empty".to_string()));
             },
             _ => return Err(ApiError::Hardware(format!("Dispenser is not operational (current status: {:?})", state_guard.status))),
         }
-        
-        state_guard.status = DispenserStatus::Dispensing;
     }; // Lock is released here, we want to avoid holding the lock for long periods so other tasks can access the state
 
+
     info!("Dispensing treatos...");
+    let hw_state_clone = Arc::clone(&hw_state);
 
     // Spawn a task that manages the blocking work
     tokio::spawn(async move {
         // Handle the blocking motor control in a separate thread
-        let result = tokio::task::spawn_blocking(move || {
-            let step_count = motor.get_step_count_for_full_rotation(motor::StepMode::Full);
-            motor.run_motor(step_count.into(), motor::Direction::Clockwise, motor::StepMode::Full)
+        let motor_task_result = tokio::task::spawn_blocking(move || {
+            let step_count = motor.get_step_count_for_full_rotation(StepMode::Full);
+            let result = motor.run_motor(step_count.into(), Direction::Clockwise, StepMode::Full, &hw_state_clone);
+
+            // enforce a cooldown period after operation
+            set_dispenser_status(&hw_state_clone, DispenserStatus::Cooldown);
+            std::thread::sleep(Duration::from_millis(5000));
+
+            result
         }).await;
 
         // Handle the result back in the async context
-        match result {
+        match motor_task_result {
             Ok(Ok(_)) => {
-                info!("Treatos dispensed! Updating state...");
+                info!("Treatos dispensed successfully!");
                 
                 let sys_time = std::time::SystemTime::now();
                 let sys_local_datetime: DateTime<Local> = sys_time.into();

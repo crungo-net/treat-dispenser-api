@@ -1,6 +1,10 @@
 use std::time::Duration;
 use rppal::gpio::{Gpio, Level::High, Level::Low};
-use tracing::info;
+use tracing::{info, debug};
+use tracing_subscriber::field::debug;
+use crate::state::{self, DispenserState, DispenserStatus};
+use std::sync::{Arc};
+use tokio::sync::Mutex;
 
 pub enum StepMode {
     Full,
@@ -16,7 +20,7 @@ pub enum Direction {
 }
 
 pub trait StepperMotor {
-    fn run_motor(&self, steps: u32, direction: Direction, step_mode: StepMode) -> Result<(), String>;
+    fn run_motor(&self, steps: u32, direction: Direction, step_mode: StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(), String>;
     fn get_step_count_for_full_rotation(&self, step_mode: StepMode) -> u32;
 }
 
@@ -24,8 +28,7 @@ pub struct Stepper28BYJ48 {}
 
 impl StepperMotor for Stepper28BYJ48 {
     // todo: handle direction
-    fn run_motor(&self, step_count: u32, direction: Direction, step_mode: StepMode) -> Result<(), String> {
-        // Implementation for running the 28BYJ-48 stepper motor
+    fn run_motor(&self, step_count: u32, _direction: Direction, step_mode: StepMode, _state: &Arc<Mutex<DispenserState>>) -> Result<(), String> {
 
 
         let delay_between_steps_ms: u64;
@@ -91,10 +94,7 @@ impl StepperMotor for Stepper28BYJ48 {
                 pin2.write(Low);
                 pin3.write(Low);
                 pin4.write(Low);
-                info!("Motor operation completed, entering cooldown period");
-                
-                // regardless of how long dispensing takes, we enforce a 5 second cooldown
-                std::thread::sleep(Duration::from_millis(5000));
+                info!("Motor operation completed");
                 
                 Ok(())
             },
