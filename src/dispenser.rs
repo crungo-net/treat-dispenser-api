@@ -55,8 +55,9 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
     tokio::spawn(async move {
         // Handle the blocking motor control in a separate thread
         let motor_task_result = tokio::task::spawn_blocking(move || {
-            let step_count = motor.get_step_count_for_full_rotation(StepMode::Full);
-            let result = motor.run_motor(step_count.into(), Direction::Clockwise, StepMode::Full, &hw_state_clone);
+            let step_mode = StepMode::Full;
+            let dir = Direction::Clockwise;
+            let result = motor.run_motor_degrees(100.0, dir, &step_mode, &hw_state_clone);
 
             // enforce a cooldown period after operation
             set_dispenser_status(&hw_state_clone, DispenserStatus::Cooldown);
@@ -67,22 +68,20 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
 
         // Handle the result back in the async context
         match motor_task_result {
-            Ok(Ok(_)) => {
+            Ok(Ok(last_step_index)) => {
                 info!("Treatos dispensed successfully!");
-                
+                debug!("Last step index reached: {}", last_step_index);
+
                 let sys_time = std::time::SystemTime::now();
                 let sys_local_datetime: DateTime<Local> = sys_time.into();
                 let formatted_sys_time = sys_local_datetime.format("%Y-%m-%d %H:%M:%S").to_string();
                 
-                if let Ok(mut state_guard) = hw_state.try_lock() {
-                    state_guard.last_dispense_time = Some(formatted_sys_time);
-                    state_guard.status = DispenserStatus::Operational;
-                } else {
-                    tokio::time::sleep(Duration::from_millis(100)).await;
-                    let mut state_guard = hw_state.lock().await;
-                    state_guard.last_dispense_time = Some(formatted_sys_time);
-                    state_guard.status = DispenserStatus::Operational;
-                }
+                let mut state_guard = hw_state.lock().await;
+                state_guard.last_dispense_time = Some(formatted_sys_time);
+                state_guard.status = DispenserStatus::Operational;
+                state_guard.last_step_index = Some(last_step_index);
+                debug!("Dispenser state updated: last_dispense_time={:?}, status={:?}, last_step_index={:?}",
+                    state_guard.last_dispense_time, state_guard.status, state_guard.last_step_index); 
             },
             Ok(Err(e)) => {
                 error!("Motor control error: {}", e);
