@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::{error, info, debug};
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub enum DispenserStatus {
@@ -14,6 +14,7 @@ pub enum DispenserStatus {
     Unknown,
     MotorControlError,
     NoGpio,
+    Cooldown,
 }
 
 #[derive(Serialize, Debug)]
@@ -98,4 +99,30 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
         uptime_seconds: uptime_seconds,
         dispenser_status: state_guard.status.clone(),
     }
+}
+
+/// Acquires a lock on the DispenserState and sets the dispenser status synchronously.
+pub fn set_dispenser_status(
+    state: &Arc<Mutex<DispenserState>>,
+    status: DispenserStatus,
+) {
+    let mut state_guard = state.blocking_lock();
+    debug!("Lock acquired on DispenserState");
+
+    state_guard.status = status.clone();
+    info!("Dispenser status set to {:?}", status);
+    // lock is released here automatically when state_guard goes out of scope
+}
+
+
+pub async fn set_dispenser_status_async(
+    state: &Arc<Mutex<DispenserState>>,
+    status: DispenserStatus,
+) {
+    let mut state_guard = state.lock().await;
+    debug!("Lock acquired on DispenserState");
+
+    state_guard.status = status.clone();
+    info!("Dispenser status set to {:?}", status);
+    // lock is released here automatically when state_guard goes out of scope
 }

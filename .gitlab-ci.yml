@@ -1,5 +1,6 @@
 stages:
   - build
+  - deploy
 
 build-and-push:
   stage: build
@@ -92,3 +93,23 @@ build-and-push-arm64:
     paths:
       - dist/treat-dispenser-api-aarch64
     expire_in: 1 week
+  
+release-github:
+  stage: deploy
+  image: ghcr.io/jakubknejzlik/github-release:latest # or ubuntu + install gh CLI in before_script
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: always
+  dependencies:
+    - build-and-push
+  script: |
+    TAG="v$(date +%Y%m%d)-$CI_COMMIT_SHORT_SHA"
+    RELEASE_NAME="Treat Dispenser API $TAG"
+    echo $GITHUB_TOKEN | gh auth login --with-token
+    gh release create "$TAG" \
+      dist/treat-dispenser-api-amd64 \
+      --repo github.com/github.com/crungo-net/treat-dispenser-api \
+      --title "$RELEASE_NAME" \
+      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA on branch $CI_COMMIT_BRANCH."
+  variables:
+    GITHUB_TOKEN: $GITHUB_TOKEN # from GitLab CI/CD variables
