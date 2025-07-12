@@ -36,6 +36,7 @@ pub struct DispenserState {
     pub last_dispense_time: Option<String>,
     pub last_error_msg: Option<String>,
     pub last_error_time: Option<String>,
+    pub last_step_index: Option<u32>,
 }
 
 impl DispenserState {
@@ -63,6 +64,7 @@ impl DispenserState {
             last_dispense_time: None,
             last_error_msg: None,
             last_error_time: None,
+            last_step_index: None,
         }
     }
 

@@ -20,21 +20,28 @@ pub enum Direction {
 }
 
 pub trait StepperMotor {
-    fn run_motor(&self, steps: u32, direction: Direction, step_mode: StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(), String>;
-    fn get_step_count_for_full_rotation(&self, step_mode: StepMode) -> u32;
+    fn run_motor(&self, steps: u32, direction: Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String>;
+
+    /// Runs the motor for a specified number of degrees in a given direction and step mode.
+    /// The number of steps is calculated based on the step mode and the degrees.
+    /// Returns the last step index reached after running the motor.
+    fn run_motor_degrees(&self, degrees: f32, direction: Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
+        let step_count = (degrees / 360.0 * self.get_step_count_for_full_rotation(step_mode) as f32) as u32;
+        self.run_motor(step_count, direction, step_mode, hw_state)
+    }
+
+    fn get_step_count_for_full_rotation(&self, step_mode: &StepMode) -> u32;
 }
 
 pub struct Stepper28BYJ48 {}
 
 impl StepperMotor for Stepper28BYJ48 {
     // todo: handle direction
-    fn run_motor(&self, step_count: u32, _direction: Direction, step_mode: StepMode, _state: &Arc<Mutex<DispenserState>>) -> Result<(), String> {
-
-
+    fn run_motor(&self, step_count: u32, _direction: Direction, step_mode: &StepMode, _state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
         let delay_between_steps_ms: u64;
         let step_sequence: Vec<[u8; 4]> = match step_mode {
 
-            // 4096 steps for a full rotation in half step mode
+            // 4096 steps for a full rotation in half step mod
             StepMode::Half => {
                 info!("Using half step mode");
                 delay_between_steps_ms = 1; 
@@ -76,13 +83,18 @@ impl StepperMotor for Stepper28BYJ48 {
                 let mut pin4 = self.get_pin(&gpio, 6)?;  
                 
                 info!("Starting motor with {} steps", step_count);
+
+                let mut last_step_index: u32 = 0;
     
                 // todo: for the 28BYJ-48/ULN2003, we need to keep track of the sequence index it stops at to avoid jolting the motor
                 // when it next runs, particularly if it stops in the middle of the sequence
                 // This is not needed for the NEMA-14/A4988, as the driver will handle the sequence automatically
                 // For now, we just repeat the sequence from the start
                 for step in 0..step_count {
-                    let sequence = &step_sequence[(step as usize) % step_sequence.len()];
+                    let index = step % step_sequence.len() as u32;
+                    last_step_index = index;
+
+                    let sequence = &step_sequence[index as usize];
                     pin1.write(sequence[0].into());
                     pin2.write(sequence[1].into());
                     pin3.write(sequence[2].into());
@@ -96,13 +108,13 @@ impl StepperMotor for Stepper28BYJ48 {
                 pin4.write(Low);
                 info!("Motor operation completed");
                 
-                Ok(())
+                Ok(last_step_index)
             },
             Err(e) => Err(format!("Failed to create local Gpio instance: {}", e)),
         }
     }
 
-    fn get_step_count_for_full_rotation(&self, step_mode: StepMode) -> u32 {
+    fn get_step_count_for_full_rotation(&self, step_mode: &StepMode) -> u32 {
         match step_mode {
             StepMode::Full => 2048, 
             StepMode::Half => 4096, 
