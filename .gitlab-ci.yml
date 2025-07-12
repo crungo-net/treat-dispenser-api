@@ -17,7 +17,6 @@ build-and-push:
     export CACHE_IMAGE=harbor.crungo.net/scout/treat-dispenser-api:buildcache
     export IMAGE=harbor.crungo.net/scout/treat-dispenser-api
     export SHORT_SHA=$(echo "$CI_COMMIT_SHA" | cut -c1-8)
-    export SAFE_BRANCH=$(echo "$CI_COMMIT_BRANCH" | tr '/' '-')
     export CACHE_BUST=$(date +%s)
 
     if [ -n "$CI_COMMIT_BRANCH" ]; then
@@ -47,7 +46,7 @@ build-and-push:
       --opt build-arg:CACHE_BUST=${CACHE_BUST} \
       --output type=image,name=${IMAGE}:latest,push=true \
       --output type=image,name=${IMAGE}:${SHORT_SHA},push=true \
-      --output type=image,name=${IMAGE}:${SAFE_BRANCH},push=true \
+      --output type=image,name=${IMAGE}:${SAFE_REF},push=true \
       --output type=local,dest=./dist \
       --opt target=binary-export
 
