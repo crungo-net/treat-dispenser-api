@@ -82,7 +82,7 @@ build-arm64-binary:
   
 release-github:
   stage: deploy
-  image: harbor.crungo.net/docker-proxy/ubuntu:24.04
+  image: harbor.crungo.net/docker-proxy/library/ubuntu:24.04
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
