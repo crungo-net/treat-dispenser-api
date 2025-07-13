@@ -20,12 +20,12 @@ pub enum Direction {
 }
 
 pub trait StepperMotor {
-    fn run_motor(&self, steps: u32, direction: Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String>;
+    fn run_motor(&self, steps: u32, direction: &Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String>;
 
     /// Runs the motor for a specified number of degrees in a given direction and step mode.
     /// The number of steps is calculated based on the step mode and the degrees.
     /// Returns the last step index reached after running the motor.
-    fn run_motor_degrees(&self, degrees: f32, direction: Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
+    fn run_motor_degrees(&self, degrees: f32, direction: &Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
         let step_count = (degrees / 360.0 * self.get_step_count_for_full_rotation(step_mode) as f32) as u32;
         self.run_motor(step_count, direction, step_mode, hw_state)
     }
@@ -37,7 +37,7 @@ pub struct Stepper28BYJ48 {}
 
 impl StepperMotor for Stepper28BYJ48 {
     // todo: handle direction
-    fn run_motor(&self, step_count: u32, _direction: Direction, step_mode: &StepMode, _state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
+    fn run_motor(&self, step_count: u32, _direction: &Direction, step_mode: &StepMode, _state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
         let delay_between_steps_ms: u64;
         let step_sequence: Vec<[u8; 4]> = match step_mode {
 
