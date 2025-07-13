@@ -83,6 +83,8 @@ tag-release:
   image: harbor.crungo.net/docker-proxy/library/ubuntu:24.04
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - Cargo.toml
       when: manual
   before_script:
     - apt-get update && apt-get install -y ca-certificates git
@@ -124,7 +126,7 @@ release-github:
       dist/treat-dispenser-api-aarch64 \
       --repo github.com/crungo-net/treat-dispenser-api \
       --title "$RELEASE_NAME" \
-      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA for tag `$CI_COMMIT_TAG`"
+      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA"
 
 
   variables:
