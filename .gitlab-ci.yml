@@ -58,23 +58,13 @@ build-and-push:
     expire_in: 1 week
 
 
-# this is a workaround for the fact that cross-compilation with Docker is slow and complex
-# and we can use the native Rust toolchain to build for ARM64 directly
 build-arm64-binary:
   stage: build
   # for official Docker Hub images, we need to use the 'library' namespace
-  image: harbor.crungo.net/docker-proxy/library/rust:1.88
+  image: harbor.crungo.net/scout/rust-arm64-compiler:latest
   tags:
     - fast
   script:
-    # Install cross-compilation toolchain
-    - rustup target add aarch64-unknown-linux-musl
-    - apt-get update && apt-get install -y musl-tools gcc-aarch64-linux-gnu
-    
-    # Set up environment for cross compilation
-    - export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc
-    - export CC_aarch64_unknown_linux_musl=aarch64-linux-gnu-gcc
-    
     # Create output directory
     - mkdir -p dist
     
@@ -93,6 +83,7 @@ tag-release:
   image: harbor.crungo.net/docker-proxy/library/ubuntu:24.04
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
   before_script:
     - apt-get update && apt-get install -y ca-certificates git
   script: |
@@ -126,15 +117,14 @@ release-github:
     VERSION=$(grep '^version =' Cargo.toml | head -1 | sed -E "s/version = \"([^\"]+)\"/\1/")
     echo "Version: $VERSION"
 
-    TAG="v$VERSION"
-    RELEASE_NAME="Treat Dispenser API $TAG"
+    RELEASE_NAME="Treat Dispenser API $CI_COMMIT_TAG"
 
-    gh release create "$TAG" \
+    gh release create "$CI_COMMIT_TAG" \
       dist/treat-dispenser-api-amd64 \
       dist/treat-dispenser-api-aarch64 \
       --repo github.com/crungo-net/treat-dispenser-api \
       --title "$RELEASE_NAME" \
-      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA for tag $TAG"
+      --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA for tag `$CI_COMMIT_TAG`"
 
 
   variables:
