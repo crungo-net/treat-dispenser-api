@@ -34,10 +34,6 @@ pub async fn dispense_treat(
     Ok("Dispensing started, please wait...")
 }
 
-pub async fn health_check() -> impl IntoResponse {
-    "OK"
-}
-
 pub async fn detailed_health(
     State(hw_state): State<Arc<Mutex<state::DispenserState>>>,
 ) -> impl IntoResponse {
