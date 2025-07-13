@@ -112,7 +112,7 @@ release-github:
     - build-and-push
     - build-arm64-binary
   before_script:
-    - apt-get update && apt-get install -y gh jq ca-certificates
+    - apt-get update && apt-get install -y gh jq ca-certificates git
   script: |
     set -ex
     ls -lh dist/
