@@ -124,7 +124,7 @@ release-github:
     # get previous release tag
     git fetch --tags --unshallow || git fetch --tags
 
-    PREV_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "none")
+    PREV_TAG=$(git tag --sort=-v:refname | grep -v "$CI_COMMIT_TAG" | grep '^v' | head -n1)
     if [ "$PREV_TAG" = "none" ]; then
       CHANGELOG="Initial release"
     else
