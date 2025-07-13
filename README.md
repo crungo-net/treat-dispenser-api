@@ -45,29 +45,13 @@ _Response:_
 
 ---
 
-### `GET /health`
-
-Simple health check endpoint.
-
-**Example:**
-```sh
-curl http://localhost:3500/health
-```
-
-_Response:_
-```
-OK
-```
-
----
-
-### `GET /health/detailed`
+### `GET /status`
 
 Returns detailed health status information including GPIO availability, motor status, and uptime.
 
 **Example:**
 ```sh
-curl http://localhost:3500/health/detailed
+curl http://localhost:3500/status
 ```
 
 _Response:_ JSON object containing system status information.

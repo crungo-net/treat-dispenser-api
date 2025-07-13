@@ -44,8 +44,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(route::root))
-        .route("/health", get(route::health_check))
-        .route("/health/detailed", get(route::detailed_health))
+        .route("/status", get(route::detailed_health))
         .route("/dispense", get(route::dispense_treat))
         .with_state(hw_state)
         .layer(
