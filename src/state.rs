@@ -5,6 +5,8 @@ use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{error, info, debug};
 
+pub type HwStateMutex = Arc<Mutex<DispenserState>>;
+
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub enum DispenserStatus {
     Dispensing,

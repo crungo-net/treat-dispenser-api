@@ -1,10 +1,8 @@
 use std::time::Duration;
 use rppal::gpio::{Gpio, Level::High, Level::Low};
 use tracing::{info, debug};
-use tracing_subscriber::field::debug;
-use crate::state::{self, DispenserState, DispenserStatus};
-use std::sync::{Arc};
-use tokio::sync::Mutex;
+use crate::state::{HwStateMutex};
+
 
 pub enum StepMode {
     Full,
@@ -20,14 +18,14 @@ pub enum Direction {
 }
 
 pub trait StepperMotor {
-    fn run_motor(&self, steps: u32, direction: &Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String>;
+    fn run_motor(&self, steps: u32, direction: &Direction, step_mode: &StepMode) -> Result<u32, String>;
 
     /// Runs the motor for a specified number of degrees in a given direction and step mode.
     /// The number of steps is calculated based on the step mode and the degrees.
     /// Returns the last step index reached after running the motor.
-    fn run_motor_degrees(&self, degrees: f32, direction: &Direction, step_mode: &StepMode, hw_state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
+    fn run_motor_degrees(&self, degrees: f32, direction: &Direction, step_mode: &StepMode) -> Result<u32, String> {
         let step_count = (degrees / 360.0 * self.get_step_count_for_full_rotation(step_mode) as f32) as u32;
-        self.run_motor(step_count, direction, step_mode, hw_state)
+        self.run_motor(step_count, direction, step_mode)
     }
 
     fn get_step_count_for_full_rotation(&self, step_mode: &StepMode) -> u32;
@@ -36,12 +34,10 @@ pub trait StepperMotor {
 pub struct Stepper28BYJ48 {}
 
 impl StepperMotor for Stepper28BYJ48 {
-    // todo: handle direction
-    fn run_motor(&self, step_count: u32, direction: &Direction, step_mode: &StepMode, _state: &Arc<Mutex<DispenserState>>) -> Result<(u32), String> {
+    fn run_motor(&self, step_count: u32, direction: &Direction, step_mode: &StepMode) -> Result<u32, String> {
         let delay_between_steps_ms: u64;
         let mut step_sequence: Vec<[u8; 4]> = match step_mode {
 
-            // 4096 steps for a full rotation in half step mod
             StepMode::Half => {
                 info!("Using half step mode");
                 delay_between_steps_ms = 1; 
@@ -56,8 +52,6 @@ impl StepperMotor for Stepper28BYJ48 {
                     [1, 0, 0, 1],
                 ]
             },
-            // 2048 steps for a full rotation in full step mode
-            // 2048/4 = 512 cycles needed for full rotation
             // more torque than half step mode due to two coils being energized at once
             // but needs more time in between steps to avoid overheating
             StepMode::Full => {
@@ -92,15 +86,10 @@ impl StepperMotor for Stepper28BYJ48 {
                     },
                     Direction::CounterClockwise => {
                         info!("Running motor in counter-clockwise direction");
-                        // Reverse the step sequence for counter-clockwise rotation
                         step_sequence.reverse();
                     },
                 }
     
-                // todo: for the 28BYJ-48/ULN2003, we need to keep track of the sequence index it stops at to avoid jolting the motor
-                // when it next runs, particularly if it stops in the middle of the sequence
-                // This is not needed for the NEMA-14/A4988, as the driver will handle the sequence automatically
-                // For now, we just repeat the sequence from the start
                 for step in 0..step_count {
                     let index = step % step_sequence.len() as u32;
                     last_step_index = index;

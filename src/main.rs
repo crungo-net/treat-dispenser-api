@@ -15,7 +15,6 @@ use tokio::sync::Mutex;
 use tower_http::trace::{DefaultOnRequest, TraceLayer};
 use tracing::{Level, error, info};
 use tracing_subscriber::EnvFilter;
-use std::thread;
 
 #[tokio::main]
 async fn main() {
