@@ -56,8 +56,8 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
         // Handle the blocking motor control in a separate thread
         let motor_task_result = tokio::task::spawn_blocking(move || {
             let step_mode = StepMode::Full;
-            let dir = Direction::Clockwise;
-            let result = motor.run_motor_degrees(100.0, &dir, &step_mode, &hw_state_clone);
+            let dir = Direction::CounterClockwise;
+            let result = motor.run_motor_degrees(360.0, &dir, &step_mode, &hw_state_clone);
 
             // enforce a cooldown period after operation
             set_dispenser_status(&hw_state_clone, DispenserStatus::Cooldown);
