@@ -1,11 +1,10 @@
 use crate::error::ApiError;
-use crate::state::{DispenserState, set_dispenser_status};
+use crate::state::{set_dispenser_status, HwStateMutex};
 use chrono::{DateTime, Local};
 use std::sync::{Arc};
 use std::{time::Duration};
 use tracing::{debug, info, error};
 use crate::state::DispenserStatus;
-use tokio::sync::Mutex;
 use crate::motor::{self, StepperMotor, Direction, StepMode};
 
 
@@ -14,7 +13,7 @@ use crate::motor::{self, StepperMotor, Direction, StepMode};
 /// It uses a background task to perform the dispensing steps without blocking the main thread and thus
 /// does not affect API responsiveness.
 /// After dispensing, it updates the state to "Operational" and records the last dispense time.
-pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiError> {
+pub async fn dispense(hw_state: HwStateMutex) -> Result<(), ApiError> {
     let motor_result = select_motor(
         std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string())
     );
@@ -57,7 +56,7 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
         let motor_task_result = tokio::task::spawn_blocking(move || {
             let step_mode = StepMode::Full;
             let dir = Direction::CounterClockwise;
-            let result = motor.run_motor_degrees(360.0, &dir, &step_mode, &hw_state_clone);
+            let result = motor.run_motor_degrees(360.0, &dir, &step_mode);
 
             // enforce a cooldown period after operation
             set_dispenser_status(&hw_state_clone, DispenserStatus::Cooldown);
@@ -98,7 +97,7 @@ pub async fn dispense(hw_state: Arc<Mutex<DispenserState>>) -> Result<(), ApiErr
     Ok(())
 }
 
-async fn set_error_status(hw_state: &Arc<Mutex<DispenserState>>) {
+async fn set_error_status(hw_state: &HwStateMutex) {
     if let Ok(mut state_guard) = hw_state.try_lock() {
         state_guard.status = DispenserStatus::Unknown;
     } else {
