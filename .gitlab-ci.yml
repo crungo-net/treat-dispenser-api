@@ -122,6 +122,8 @@ release-github:
     RELEASE_NAME="Treat Dispenser API $CI_COMMIT_TAG"
 
     # get previous release tag
+    git fetch --tags --unshallow || git fetch --tags
+
     PREV_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "none")
     if [ "$PREV_TAG" = "none" ]; then
       CHANGELOG="Initial release"
