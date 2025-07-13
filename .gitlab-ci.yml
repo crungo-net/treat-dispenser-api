@@ -80,14 +80,12 @@ build-arm64-binary:
 
 tag-release:
   stage: deploy
-  image: harbor.crungo.net/docker-proxy/library/ubuntu:24.04
+  image: harbor.crungo.net/scout/alpine-git:latest
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
         - Cargo.toml
       when: manual
-  before_script:
-    - apt-get update && apt-get install -y ca-certificates git
   script: |
     set -ex
     VERSION=$(grep '^version =' Cargo.toml | head -1 | sed -E "s/version = \"([^\"]+)\"/\1/")
@@ -103,7 +101,7 @@ tag-release:
   
 release-github:
   stage: deploy
-  image: harbor.crungo.net/docker-proxy/library/ubuntu:24.04
+  image: harbor.crungo.net/scout/alpine-git:latest
   rules:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[A-Za-z0-9\.\_]+)?(\+[A-Za-z0-9\.\_]+)?$/'
@@ -111,8 +109,6 @@ release-github:
   dependencies:
     - build-and-push
     - build-arm64-binary
-  before_script:
-    - apt-get update && apt-get install -y gh jq ca-certificates git
   script: |
     set -ex
     ls -lh dist/
