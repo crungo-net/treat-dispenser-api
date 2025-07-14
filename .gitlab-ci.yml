@@ -7,7 +7,7 @@ stages:
   - fetch
   - deploy
 
-build-and-push:
+build-amd64-binary-and-image:
   stage: build
   image: harbor.crungo.net/docker-proxy/moby/buildkit:latest
   rules:
@@ -66,7 +66,7 @@ build-and-push:
 build-arm64-binary:
   stage: build
   # for official Docker Hub images, we need to use the 'library' namespace
-  image: harbor.crungo.net/scout/rust-arm64-compiler:latest
+  image: harbor.crungo.net/scout/rust-arm64-compiler:1.88
   tags:
     - fast
   rules:
@@ -104,7 +104,7 @@ tag-release:
     git tag "$TAG" "$CI_COMMIT_SHA"
     git push "https://GITLAB_PUSH_USER:${GITLAB_PAT}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git" "$TAG"
   needs:
-    - build-and-push
+    - build-amd64-binary-and-image
     - build-arm64-binary
 
 # use the gitlab CLI to fetch artifacts for the tag we want to release
@@ -128,7 +128,7 @@ fetch-artifacts-for-tag:
       exit 1
     fi
 
-    glab job artifact main build-and-push
+    glab job artifact main build-amd64-binary-and-image
     glab job artifact main build-arm64-binary
   artifacts:
     paths:
