@@ -29,11 +29,17 @@ pub trait StepperMotor {
     }
 
     fn get_step_count_for_full_rotation(&self, step_mode: &StepMode) -> u32;
+
+    fn get_name(&self) -> String;
 }
 
 pub struct Stepper28BYJ48 {}
 
 impl StepperMotor for Stepper28BYJ48 {
+    fn get_name(&self) -> String {
+        "Stepper28BYJ48".to_string()
+    }
+
     fn run_motor(&self, step_count: u32, direction: &Direction, step_mode: &StepMode) -> Result<u32, String> {
         let delay_between_steps_ms: u64;
         let mut step_sequence: Vec<[u8; 4]> = match step_mode {

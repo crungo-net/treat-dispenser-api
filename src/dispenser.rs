@@ -14,17 +14,17 @@ use crate::motor::{self, StepperMotor, Direction, StepMode};
 /// does not affect API responsiveness.
 /// After dispensing, it updates the state to "Operational" and records the last dispense time.
 pub async fn dispense(hw_state: HwStateMutex) -> Result<(), ApiError> {
-    let motor_result = select_motor(
+    let motor = match select_motor(
         std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string())
-    );
-    match motor_result {
-        Ok(_) => info!("Motor selected successfully."),
+    ) {
+        Ok(motor) => {
+            info!("Motor selected successfully, using: {}", &motor.get_name());
+            motor
+        },
         Err(e) => {
-            error!("Failed to select motor: {}", e);
             return Err(ApiError::Hardware(e));
         }
-    }
-    let motor = motor_result.unwrap();
+    };
 
     // query status before starting the process, done atomically to avoid race conditions
     {
