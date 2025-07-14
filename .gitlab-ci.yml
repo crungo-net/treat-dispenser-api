@@ -115,6 +115,19 @@ fetch-artifacts-for-tag:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[A-Za-z0-9\.\_]+)?(\+[A-Za-z0-9\.\_]+)?$/'
       when: always
   script: |
+    echo "Fetching artifacts for tag $CI_COMMIT_TAG / commit $CI_COMMIT_SHA"
+
+    git fetch --tags
+
+    # check if the expected tag exists for the current commit
+    # grep -Fxq = match the tag name exactly, remove 'x' to relax restriction
+    if git tag --points-at "$CI_COMMIT_SHA" | grep -Fxq "$CI_COMMIT_TAG"; then
+      echo "Tag $CI_COMMIT_TAG exists for commit $CI_COMMIT_SHA, fetching artifacts..."
+    else
+      echo "Tag $CI_COMMIT_TAG does not exist for commit $CI_COMMIT_SHA, aborting..."
+      exit 1
+    fi
+
     glab job artifact main build-and-push
     glab job artifact main build-arm64-binary
   artifacts:
