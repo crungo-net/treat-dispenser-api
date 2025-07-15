@@ -6,7 +6,9 @@ use tokio::sync::Mutex;
 use tracing::{debug, error, info};
 use std::fmt;
 
-use crate::motor::{Stepper28BYJ48, StepperMock, StepperMotor};
+use crate::motor::StepperMotor;
+use crate::motor::stepper_mock::StepperMock;
+use crate::motor::stepper_28byj48::Stepper28BYJ48;
 
 pub type HwStateMutex = Arc<Mutex<DispenserState>>;
 
