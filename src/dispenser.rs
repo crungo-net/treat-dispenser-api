@@ -1,5 +1,5 @@
 use crate::error::ApiError;
-use crate::motor::{self, Direction, StepMode, StepperMotor};
+use crate::motor::{Direction, StepMode, StepperMotor};
 use crate::state::DispenserStatus;
 use crate::state::{HwStateMutex, set_dispenser_status};
 use chrono::{DateTime, Local};
@@ -13,17 +13,7 @@ use tracing::{debug, error, info};
 /// does not affect API responsiveness.
 /// After dispensing, it updates the state to "Operational" and records the last dispense time.
 pub async fn dispense(hw_state: HwStateMutex) -> Result<(), ApiError> {
-    let motor = match select_motor(
-        std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string()),
-    ) {
-        Ok(motor) => {
-            info!("Motor selected successfully, using: {}", &motor.get_name());
-            motor
-        }
-        Err(e) => {
-            return Err(ApiError::Hardware(e));
-        }
-    };
+    let motor: Arc<Box<dyn StepperMotor + Send + Sync>>;
 
     // query status before starting the process, done atomically to avoid race conditions
     {
@@ -31,6 +21,7 @@ pub async fn dispense(hw_state: HwStateMutex) -> Result<(), ApiError> {
         match state_guard.status {
             DispenserStatus::Operational => {
                 state_guard.status = DispenserStatus::Dispensing;
+                motor = Arc::clone(&state_guard.motor);
             }
             DispenserStatus::Dispensing => {
                 return Err(ApiError::Busy(
@@ -114,13 +105,5 @@ async fn set_error_status(hw_state: &HwStateMutex) {
         if let Ok(mut state_guard) = hw_state.try_lock() {
             state_guard.status = DispenserStatus::Unknown;
         }
-    }
-}
-
-fn select_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
-    match motor_type.as_str() {
-        "Stepper28BYJ48" => Ok(Box::new(motor::Stepper28BYJ48::new())),
-        // Add more motor types here as needed
-        _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }
 }

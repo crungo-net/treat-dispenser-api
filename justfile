@@ -11,3 +11,6 @@ build-arm64-binary:
 
 build-deb-package:
 	@echo Not implemented yet
+
+test:
+	cargo test -- --no-capture
