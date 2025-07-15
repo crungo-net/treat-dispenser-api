@@ -1,5 +1,5 @@
-use crate::auth::Auth;
-use crate::dispenser;
+use crate::middleware::auth::Auth;
+use crate::services::dispenser;
 use crate::error::ApiError;
 use crate::state;
 use axum::extract::State;

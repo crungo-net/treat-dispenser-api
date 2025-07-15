@@ -1,10 +1,10 @@
-pub mod auth;
-pub mod dispenser;
+pub mod services;
 pub mod error;
 pub mod motor;
 pub mod response;
 pub mod route;
 pub mod state;
+pub mod middleware;
 
 use axum::extract::ConnectInfo;
 use axum::http::Request;
