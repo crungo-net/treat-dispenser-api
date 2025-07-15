@@ -1,9 +1,10 @@
 use rppal::gpio::Gpio;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
+use std::fmt;
 
 use crate::motor::{Stepper28BYJ48, StepperMock, StepperMotor};
 
@@ -21,18 +22,23 @@ pub enum DispenserStatus {
     Cooldown,
 }
 
-#[derive(Serialize, Debug)]
+impl fmt::Display for DispenserStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct HealthStatus {
     pub gpio_available: bool,
     pub motor_operational: bool,
     pub treats_available: bool,
     pub last_dispensed: Option<String>,
     pub uptime_seconds: u64,
-    pub dispenser_status: DispenserStatus,
+    pub dispenser_status: String,
     pub last_error_msg: Option<String>,
     pub last_error_time: Option<String>,
 }
-
 pub struct DispenserState {
     pub gpio: Option<Gpio>,
     pub status: DispenserStatus,
@@ -131,7 +137,7 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
         uptime_seconds: uptime_seconds,
         last_error_msg: state_guard.last_error_msg.clone(),
         last_error_time: state_guard.last_error_time.clone(),
-        dispenser_status: state_guard.status.clone(),
+        dispenser_status: state_guard.status.clone().to_string(),
     }
 }
 

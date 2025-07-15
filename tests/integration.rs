@@ -6,12 +6,12 @@ use treat_dispenser_api::build_app;
 async fn setup() -> (SocketAddr, Client) {
     dotenv::from_filename(".env.test").ok();
     let addr = start_server().await;
-    wait_for_server().await;
+    wait_for_server(100).await;
     (addr, Client::new())
 }
 
-async fn wait_for_server() {
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+async fn wait_for_server(millis: u64) {
+    tokio::time::sleep(tokio::time::Duration::from_millis(millis)).await;
 }
 
 async fn start_server() -> SocketAddr {
@@ -57,8 +57,22 @@ async fn test_root_endpoint() {
 #[tokio::test]
 async fn test_status_endpoint() {
     let (addr, client) = setup().await;
+    std::thread::sleep(std::time::Duration::from_secs(2));
+
     let response = get_with_auth(&client, addr, "/status", None).await;
     assert!(response.status().is_success());
+
+    let status_json = response
+        .json::<treat_dispenser_api::state::HealthStatus>()
+        .await
+        .unwrap();
+
+    assert!(status_json.gpio_available == false);
+    assert!(status_json.treats_available == false);
+    assert!(status_json.uptime_seconds > 0, "Uptime should be greater than 0");
+    assert!(status_json.dispenser_status == "Operational");
+    assert!(status_json.last_dispensed.is_none());
+    assert!(status_json.last_error_msg.is_none());
 }
 
 #[tokio::test]
