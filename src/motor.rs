@@ -174,6 +174,7 @@ impl StepperMotor for StepperMock {
         _direction: &Direction,
         _step_mode: &StepMode,
     ) -> Result<u32, String> {
+        std::thread::sleep(Duration::from_millis(3000)); // Simulate motor operation
         Ok(0) // Mock implementation
     }
 
