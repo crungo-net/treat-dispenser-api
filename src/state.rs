@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
-use tracing::{error, info, debug};
+use tracing::{debug, error, info};
 
 pub type HwStateMutex = Arc<Mutex<DispenserState>>;
 
@@ -58,7 +58,6 @@ impl DispenserState {
             }
         };
 
-
         Self {
             gpio,
             status,
@@ -69,7 +68,6 @@ impl DispenserState {
             last_step_index: None,
         }
     }
-
 }
 
 pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus {
@@ -114,10 +112,7 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
 }
 
 /// Acquires a lock on the DispenserState and sets the dispenser status synchronously.
-pub fn set_dispenser_status(
-    state: &Arc<Mutex<DispenserState>>,
-    status: DispenserStatus,
-) {
+pub fn set_dispenser_status(state: &Arc<Mutex<DispenserState>>, status: DispenserStatus) {
     let mut state_guard = state.blocking_lock();
     debug!("Lock acquired on DispenserState");
 
@@ -125,7 +120,6 @@ pub fn set_dispenser_status(
     info!("Dispenser status set to {:?}", status);
     // lock is released here automatically when state_guard goes out of scope
 }
-
 
 pub async fn set_dispenser_status_async(
     state: &Arc<Mutex<DispenserState>>,

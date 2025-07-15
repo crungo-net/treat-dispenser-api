@@ -4,9 +4,9 @@ use crate::error::ApiError;
 use crate::state;
 use axum::extract::State;
 use axum::{Json, response::IntoResponse};
-use std::sync::{Arc};
-use tokio::sync::Mutex ;
 use chrono::{DateTime, Local};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 pub async fn root() -> impl IntoResponse {
     "Treat dispenser is online! Binky time!"
@@ -28,8 +28,8 @@ pub async fn dispense_treat(
 
             state_lock.last_error_msg = Some(e.to_string());
             state_lock.last_error_time = Some(formatted_sys_time);
-            return Err(e)
-        },
+            return Err(e);
+        }
     };
     Ok("Dispensing started, please wait...")
 }

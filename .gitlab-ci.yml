@@ -2,10 +2,23 @@ variables:
   DOCKER_AUTH_CONFIG: '{"auths":{"harbor.crungo.net":{"username":"$CI_REGISTRY_USER","password":"$CI_REGISTRY_PASSWORD"}}}'
 
 stages:
+  - test
   - build
   - tag
   - fetch
   - deploy
+
+test:
+  stage: test
+  image: harbor.crungo.net/docker-proxy/library/rust:1.88
+  rules:
+    - if: '$CI_COMMIT_BRANCH'  # Only run if this is a branch pipeline
+      when: always
+  tags:
+    - home-lab
+  script:
+    - cargo test --all --locked --release
+
 
 build-amd64-binary-and-image:
   stage: build
