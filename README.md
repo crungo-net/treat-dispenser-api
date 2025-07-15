@@ -132,11 +132,25 @@ MOTOR_TYPE=Stepper28BYJ48 cargo run
 ## Code Structure
 
 - `src/main.rs` – Application entry point, sets up routes, logging, and server.
-- `src/dispenser.rs` – Treat dispensing logic with stepper motor control.
+- `src/lib.rs` – Library exports and app factory (used for tests and integration).
 - `src/state.rs` – System state tracking and health monitoring.
-- `src/auth.rs` – Authorization extractor for validating API requests.
 - `src/error.rs` – Error handling and HTTP response mapping.
-- `src/route.rs` – API endpoint implementations.
+- `src/motor/` – Stepper motor trait, real and mock implementations, and motor selection logic.
+    - `mod.rs` – Motor trait and module exports
+    - `implementations/` – Real hardware implementations (e.g., `stepper_28byj48.rs`)
+    - `mock.rs` – Mock motor for testing and fallback
+- `src/services/` – Business logic layer (hardware control, treat dispensing, etc.)
+    - `mod.rs` – Exports service modules
+    - `dispenser.rs` – Treat dispensing logic
+- `src/routes/` – API route handlers (HTTP endpoints)
+    - `mod.rs` – Exports route modules
+    - `dispense.rs` – Dispense endpoint handler
+    - `status.rs` – Status endpoint handler
+- `src/middleware/` – API middleware (e.g., authentication)
+    - `mod.rs` – Exports middleware modules
+    - `auth.rs` – Authentication middleware
+
+This structure aims to separate business logic, hardware integration, and HTTP interface for clarity and maintainability. 
 
 ## Requirements
 
