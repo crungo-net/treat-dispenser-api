@@ -1,4 +1,3 @@
-use crate::state::HwStateMutex;
 use rppal::gpio::{Gpio, Level::High, Level::Low};
 use std::time::Duration;
 use tracing::{debug, info};
@@ -159,3 +158,34 @@ impl Stepper28BYJ48 {
 }
 
 pub struct StepperNema14 {}
+
+pub struct StepperMock {}
+
+impl StepperMock {
+    pub fn new() -> Self {
+        StepperMock {}
+    }
+}
+
+impl StepperMotor for StepperMock {
+    fn run_motor(
+        &self,
+        _steps: u32,
+        _direction: &Direction,
+        _step_mode: &StepMode,
+    ) -> Result<u32, String> {
+        Ok(0) // Mock implementation
+    }
+
+    fn get_step_count_for_full_rotation(&self, _step_mode: &StepMode) -> u32 {
+        2048 // Mock implementation
+    }
+
+    fn get_name(&self) -> String {
+        "StepperMock".to_string()
+    }
+
+    fn requires_gpio(&self) -> bool {
+        false
+    }
+}

@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
 
-use crate::motor::{Stepper28BYJ48, StepperMotor};
+use crate::motor::{Stepper28BYJ48, StepperMock, StepperMotor};
 
 pub type HwStateMutex = Arc<Mutex<DispenserState>>;
 
@@ -53,7 +53,10 @@ impl DispenserState {
             std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string());
 
         let motor = match select_motor(motor_env.to_string()) {
-            Ok(motor) => Arc::new(motor),
+            Ok(motor) => {
+                info!("Motor selected: {}", motor.get_name());
+                Arc::new(motor)
+            },
             Err(e) => {
                 error!("Failed to select motor: {}", e);
                 std::process::exit(1);
@@ -157,6 +160,7 @@ pub async fn set_dispenser_status_async(
 fn select_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
+        "StepperMock" => Ok(Box::new(StepperMock::new())),
         // Add more motor types here as needed
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }

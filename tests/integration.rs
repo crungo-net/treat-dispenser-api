@@ -74,9 +74,8 @@ async fn test_dispense_endpoint_authorized() {
     let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
     let response = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
     assert!(
-        response.status().is_success()
-            || response.status() == reqwest::StatusCode::INTERNAL_SERVER_ERROR,
-        "Expected success or hardware error (internal server error), got: {}",
+        response.status().is_success(),
+        "Expected success, got: {}",
         response.status()
     );
 }

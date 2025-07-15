@@ -1,5 +1,5 @@
 use crate::error::ApiError;
-use crate::motor::{self, Direction, StepMode, StepperMotor};
+use crate::motor::{Direction, StepMode, StepperMotor};
 use crate::state::DispenserStatus;
 use crate::state::{HwStateMutex, set_dispenser_status};
 use chrono::{DateTime, Local};
@@ -105,13 +105,5 @@ async fn set_error_status(hw_state: &HwStateMutex) {
         if let Ok(mut state_guard) = hw_state.try_lock() {
             state_guard.status = DispenserStatus::Unknown;
         }
-    }
-}
-
-fn select_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
-    match motor_type.as_str() {
-        "Stepper28BYJ48" => Ok(Box::new(motor::Stepper28BYJ48::new())),
-        // Add more motor types here as needed
-        _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }
 }
