@@ -1,9 +1,6 @@
 use crate::error::ApiError;
-use axum::{
-    extract::FromRequestParts,
-    http::{request::Parts},
-};
-use tracing::{debug};
+use axum::{extract::FromRequestParts, http::request::Parts};
+use tracing::debug;
 
 pub struct Auth;
 
@@ -18,7 +15,10 @@ where
     type Rejection = ApiError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let expected_token = std::env::var("DISPENSER_API_TOKEN").unwrap();
+        // if no token is set, return Unauthorized error
+        let expected_token =
+            std::env::var("DISPENSER_API_TOKEN").map_err(|_| ApiError::Unauthorized)?;
+
         let auth_header = parts
             .headers
             .get("Authorization")

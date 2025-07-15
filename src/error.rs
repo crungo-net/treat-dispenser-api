@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use std::fmt;
-use tracing::{error};
+use tracing::error;
 
 #[derive(Debug)]
 pub enum ApiError {
