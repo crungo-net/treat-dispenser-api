@@ -41,6 +41,11 @@ pub trait StepperMotor {
     fn get_step_count_for_full_rotation(&self, step_mode: &StepMode) -> u32;
 
     fn get_name(&self) -> String;
+
+    fn requires_gpio(&self) -> bool {
+        true
+    }
+
 }
 
 pub struct Stepper28BYJ48 {}

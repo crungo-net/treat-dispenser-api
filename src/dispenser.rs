@@ -13,17 +13,7 @@ use tracing::{debug, error, info};
 /// does not affect API responsiveness.
 /// After dispensing, it updates the state to "Operational" and records the last dispense time.
 pub async fn dispense(hw_state: HwStateMutex) -> Result<(), ApiError> {
-    let motor = match select_motor(
-        std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string()),
-    ) {
-        Ok(motor) => {
-            info!("Motor selected successfully, using: {}", &motor.get_name());
-            motor
-        }
-        Err(e) => {
-            return Err(ApiError::Hardware(e));
-        }
-    };
+    let motor: Arc<Box<dyn StepperMotor + Send + Sync>>;
 
     // query status before starting the process, done atomically to avoid race conditions
     {
@@ -31,6 +21,7 @@ pub async fn dispense(hw_state: HwStateMutex) -> Result<(), ApiError> {
         match state_guard.status {
             DispenserStatus::Operational => {
                 state_guard.status = DispenserStatus::Dispensing;
+                motor = Arc::clone(&state_guard.motor);
             }
             DispenserStatus::Dispensing => {
                 return Err(ApiError::Busy(
