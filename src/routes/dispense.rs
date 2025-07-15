@@ -1,16 +1,11 @@
-use crate::middleware::auth::Auth;
-use crate::services::dispenser;
-use crate::error::ApiError;
-use crate::state;
 use axum::extract::State;
-use axum::{Json, response::IntoResponse};
-use chrono::{DateTime, Local};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use chrono::{DateTime, Local};
+use crate::middleware::auth::Auth;
+use crate::state;
+use crate::error::ApiError;
+use crate::services::dispenser;
 
-pub async fn root() -> impl IntoResponse {
-    "Treat dispenser is online! Binky time!"
-}
 
 pub async fn dispense_treat(
     _auth: Auth,
@@ -32,11 +27,4 @@ pub async fn dispense_treat(
         }
     };
     Ok("Dispensing started, please wait...")
-}
-
-pub async fn detailed_health(
-    State(hw_state): State<Arc<Mutex<state::DispenserState>>>,
-) -> impl IntoResponse {
-    let health_status = state::check_hardware(&hw_state).await;
-    Json(health_status)
 }

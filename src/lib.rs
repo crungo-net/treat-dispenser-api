@@ -2,9 +2,9 @@ pub mod services;
 pub mod error;
 pub mod motor;
 pub mod response;
-pub mod route;
 pub mod state;
 pub mod middleware;
+pub mod routes;
 
 use axum::extract::ConnectInfo;
 use axum::http::Request;
@@ -36,9 +36,9 @@ pub fn build_app() -> axum::Router {
     let hw_state = Arc::new(Mutex::new(state::DispenserState::new()));
 
     Router::new()
-        .route("/", get(route::root))
-        .route("/status", get(route::detailed_health))
-        .route("/dispense", get(route::dispense_treat))
+        .route("/", get(routes::root))
+        .route("/status", get(routes::status::detailed_health))
+        .route("/dispense", get(routes::dispense::dispense_treat))
         .with_state(hw_state)
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
