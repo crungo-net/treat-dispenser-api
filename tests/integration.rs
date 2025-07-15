@@ -93,3 +93,13 @@ async fn test_dispense_endpoint_authorized() {
         response.status()
     );
 }
+
+#[tokio::test]
+async fn test_dispense_endpoint_busy_response() {
+    let (addr, client) = setup().await;
+    let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
+    let _ = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
+    let response = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
+
+    assert_eq!(response.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+}
