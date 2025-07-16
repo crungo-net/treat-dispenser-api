@@ -12,6 +12,15 @@ A simple REST API for controlling a treat dispenser, built with [Axum](https://g
 - **Graceful shutdown** support
 - **Docker support** for containerized deployment
 
+## Quick Setup
+
+For a quick development environment setup, run:
+
+```bash
+chmod +x setup_dev_env.sh
+./setup_dev_env.sh
+```
+
 ## Endpoints
 
 ### `GET /`
@@ -143,9 +152,6 @@ MOTOR_TYPE=Stepper28BYJ48
 - `src/state.rs` – System state tracking and health monitoring.
 - `src/error.rs` – Error handling and HTTP response mapping.
 - `src/motor/` – Stepper motor trait, real and mock implementations, and motor selection logic.
-    - `mod.rs` – Motor trait and module exports
-    - `implementations/` – Real hardware implementations (e.g., `stepper_28byj48.rs`)
-    - `mock.rs` – Mock motor for testing and fallback
 - `src/services/` – Business logic layer (hardware control, treat dispensing, etc.)
     - `mod.rs` – Exports service modules
     - `dispenser.rs` – Treat dispensing logic
