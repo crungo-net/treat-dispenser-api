@@ -13,4 +13,4 @@ build-deb-package:
 	@echo Not implemented yet
 
 test:
-	cargo test -- --no-capture
+	cargo test -- --show-output

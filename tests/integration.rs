@@ -57,7 +57,7 @@ async fn test_root_endpoint() {
 #[tokio::test]
 async fn test_status_endpoint() {
     let (addr, client) = setup().await;
-    std::thread::sleep(std::time::Duration::from_secs(3));
+    std::thread::sleep(std::time::Duration::from_secs(5));
 
     let response = get_with_auth(&client, addr, "/status", None).await;
     assert!(response.status().is_success());
