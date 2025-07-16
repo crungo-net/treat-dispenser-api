@@ -9,6 +9,10 @@ async fn main() {
 
     configure_logging();
 
+    // read the version from Cargo.toml at compile time, bakes this into the binary
+    let version = env!("CARGO_PKG_VERSION");
+    info!("Starting Treat Dispenser API version {}", version);
+
     if std::env::var_os("DISPENSER_API_TOKEN").map_or(true, |v| v.is_empty()) {
         error!("DISPENSER_API_TOKEN environment variable is not set or is empty");
         std::process::exit(1);

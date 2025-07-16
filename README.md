@@ -61,12 +61,7 @@ _Response:_ JSON object containing system status information.
 1. **Clone the repository**
 
 2. **Set environment variables**  
-   Create a `.env` file or set these in your environment:
-   ```
-   DISPENSER_API_TOKEN=your_secret_token
-   DISPENSER_API_PORT=3500  # Optional, defaults to 3500
-   RUST_LOG=info  # Optional, controls log level
-   ```
+   Create a `.env` file or set these in your environment (see [Environment Variables](#environment-variables) section for details)
 
 3. **Run the server**
    ```sh
@@ -122,11 +117,23 @@ The motor control logic enforces a 5-second cooldown after each dispensing opera
 
 ### Motor Type Configuration
 
-You can configure which motor type is used by setting the `MOTOR_TYPE` environment variable. The default is `Stepper28BYJ48`.
+The motor type can be configured using the `MOTOR_TYPE` environment variable (see [Environment Variables](#environment-variables) section). This allows switching between hardware implementations and the mock implementation for testing.
 
-Example for 28BYJ-48 (default):
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DISPENSER_API_TOKEN` | Authentication token for API access | (Required) |
+| `DISPENSER_API_PORT` | Port to run the server on | `3500` |
+| `RUST_LOG` | Log level (trace, debug, info, warn, error) | `info` |
+| `MOTOR_TYPE` | Type of motor to use (Stepper28BYJ48, StepperMock) | `Stepper28BYJ48` |
+
+Example `.env` file:
 ```
-MOTOR_TYPE=Stepper28BYJ48 cargo run
+DISPENSER_API_TOKEN=your_secret_token
+DISPENSER_API_PORT=3500
+RUST_LOG=info
+MOTOR_TYPE=Stepper28BYJ48
 ```
 
 ## Code Structure
@@ -149,8 +156,12 @@ MOTOR_TYPE=Stepper28BYJ48 cargo run
 - `src/middleware/` – API middleware (e.g., authentication)
     - `mod.rs` – Exports middleware modules
     - `auth.rs` – Authentication middleware
+- `src/utils/` – Utility functions and helpers
+    - `mod.rs` – Exports utility modules
+    - `datetime.rs` – Date/time formatting utilities
+    - `state_helpers.rs` – State manipulation helpers
 
-This structure aims to separate business logic, hardware integration, and HTTP interface for clarity and maintainability. 
+This structure separates business logic, hardware integration, HTTP interface, and utility functions for clarity and maintainability. Each module has a single responsibility, making the codebase easier to test and extend as new features are added.
 
 ## Requirements
 
@@ -173,6 +184,30 @@ This project uses a GitLab CI pipeline (see `.gitlab-ci.yml`) to automate buildi
 - **Build Caching:** Build cache is stored in the registry to speed up subsequent builds.
 - **Artifacts:** The built binaries for each architecture are saved as CI artifacts for one week.
 - **Authentication:** Docker credentials are injected for pushing to the private registry (`harbor.crungo.net`).
+
+## Testing
+
+The project includes both unit tests and integration tests:
+
+### Unit Tests
+
+Run unit tests with:
+```sh
+cargo test --lib
+```
+
+Unit tests cover individual components like date formatting utilities, motor control logic, and error handling.
+
+### Integration Tests
+
+Run integration tests with:
+```sh
+cargo test --test integration
+```
+
+Integration tests verify the full API functionality by starting a test server and making HTTP requests to the endpoints.
+
+For better test parallelism, tests that require sequential execution (like testing busy states) are grouped together in single test functions.
 
 ## License
 
