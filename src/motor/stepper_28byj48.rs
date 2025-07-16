@@ -1,7 +1,7 @@
 use crate::motor::{Direction, StepMode, StepperMotor};
-use rppal::gpio::{Gpio, Level::High, Level::Low};
+use rppal::gpio::{Gpio, Level::Low};
 use std::time::Duration;
-use tracing::{debug, info};
+use tracing::info;
 
 pub struct Stepper28BYJ48 {}
 
@@ -46,11 +46,13 @@ impl StepperMotor for Stepper28BYJ48 {
         };
         match Gpio::new() {
             Ok(gpio) => {
-                let mut pin1 = self.get_pin(&gpio, 26)?;
-                let mut pin2 = self.get_pin(&gpio, 19)?;
-                let mut pin3 = self.get_pin(&gpio, 13)?;
-                let mut pin4 = self.get_pin(&gpio, 6)?;
+                // Use the init_stepper_pins function and handle its result properly
+                let pins =
+                    crate::utils::gpio::init_stepper_pins(&gpio).map_err(|e| format!("{}", e))?;
 
+                let [mut pin1, mut pin2, mut pin3, mut pin4] = pins
+                    .try_into()
+                    .map_err(|_| format!("Failed to initialize stepper pins."))?;
                 info!("Starting motor with {} steps", step_count);
 
                 let mut last_step_index: u32 = 0;
@@ -103,12 +105,5 @@ impl StepperMotor for Stepper28BYJ48 {
 impl Stepper28BYJ48 {
     pub fn new() -> Self {
         Stepper28BYJ48 {}
-    }
-
-    pub fn get_pin(&self, gpio: &Gpio, pin_number: u8) -> Result<rppal::gpio::OutputPin, String> {
-        match gpio.get(pin_number) {
-            Ok(pin) => Ok(pin.into_output()),
-            Err(e) => Err(format!("Failed to get GPIO pin {}: {}", pin_number, e)),
-        }
     }
 }
