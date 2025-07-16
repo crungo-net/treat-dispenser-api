@@ -28,6 +28,11 @@ build-amd64-binary-and-image:
       when: always
   tags:
     - home-lab
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - job_execution_timeout
   before_script:
     - mkdir -p ~/.docker
     - echo '{"auths":{"harbor.crungo.net":{"username":"'"$CI_REGISTRY_USER"'","password":"'"$CI_REGISTRY_PASSWORD"'"}}}' > ~/.docker/config.json
@@ -85,6 +90,11 @@ build-arm64-binary:
   rules:
     - if: '$CI_COMMIT_BRANCH'  # Only run if this is a branch pipeline
       when: always
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - job_execution_timeout
   script:
     # Create output directory
     - mkdir -p dist
@@ -127,6 +137,11 @@ fetch-artifacts-for-tag:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(-[A-Za-z0-9\.\_]+)?(\+[A-Za-z0-9\.\_]+)?$/'
       when: always
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - api_failure
   script: |
     echo "Fetching artifacts for tag $CI_COMMIT_TAG / commit $CI_COMMIT_SHA"
 
