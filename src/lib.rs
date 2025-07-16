@@ -5,6 +5,7 @@ pub mod response;
 pub mod state;
 pub mod middleware;
 pub mod routes;
+pub mod utils;
 
 use axum::extract::ConnectInfo;
 use axum::http::Request;
