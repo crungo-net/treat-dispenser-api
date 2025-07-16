@@ -47,6 +47,15 @@ async fn get_with_auth(
     req.send().await.unwrap()
 }
 
+async fn get_hardware_status(
+    client: &Client,
+    addr: SocketAddr
+) -> treat_dispenser_api::state::HealthStatus {
+    let response = get_with_auth(client, addr, "/status", None).await;
+    assert!(response.status().is_success(), "Expected success, got: {}", response.status());
+    response.json::<treat_dispenser_api::state::HealthStatus>().await.unwrap()
+}
+
 #[tokio::test]
 async fn test_root_endpoint() {
     let (addr, client) = setup().await;
@@ -57,7 +66,7 @@ async fn test_root_endpoint() {
 #[tokio::test]
 async fn test_status_endpoint() {
     let (addr, client) = setup().await;
-    std::thread::sleep(std::time::Duration::from_secs(5));
+    wait_for_server(5000).await; // Wait for server to be ready
 
     let response = get_with_auth(&client, addr, "/status", None).await;
     assert!(response.status().is_success());
@@ -73,6 +82,7 @@ async fn test_status_endpoint() {
     assert!(status_json.dispenser_status == "Operational");
     assert!(status_json.last_dispensed.is_none());
     assert!(status_json.last_error_msg.is_none());
+    assert!(status_json.last_error_time.is_none());
 }
 
 #[tokio::test]
@@ -87,10 +97,17 @@ async fn test_dispense_endpoint_authorized() {
     let (addr, client) = setup().await;
     let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
     let response = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
+
+    let health_status = get_hardware_status(&client, addr).await;
+
     assert!(
         response.status().is_success(),
         "Expected success, got: {}",
         response.status()
+    );
+    assert!(
+        health_status.dispenser_status == "Dispensing",
+        "Dispenser should be in 'Dispensing' state"
     );
 }
 
@@ -101,5 +118,21 @@ async fn test_dispense_endpoint_busy_response() {
     let _ = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
     let response = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
 
+    let hardware_status = get_hardware_status(&client, addr).await;
+
     assert_eq!(response.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(
+        hardware_status.dispenser_status,
+        "Dispensing",
+        "Dispenser should be in 'Dispensing' state"
+    );
+
+    wait_for_server(8500).await; // Wait for cooldown period to finish
+    let hardware_status = get_hardware_status(&client, addr).await;
+    assert_eq!(
+        hardware_status.dispenser_status,
+        "Operational",
+        "Dispenser should be back to 'Operational' state after cooldown"
+    );
+
 }

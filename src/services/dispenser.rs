@@ -2,10 +2,10 @@ use crate::error::ApiError;
 use crate::motor::{Direction, StepMode, StepperMotor};
 use crate::state::DispenserStatus;
 use crate::state::{HwStateMutex, set_dispenser_status};
-use chrono::{DateTime, Local};
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info};
+use crate::utils::datetime;
 
 /// Dispenses treats by controlling GPIO pins for a stepper motor.
 /// This function updates the dispenser state to "Dispensing" before starting the dispensing process.
@@ -68,12 +68,8 @@ pub async fn dispense(hw_state: HwStateMutex) -> Result<(), ApiError> {
                 info!("Treatos dispensed successfully!");
                 debug!("Last step index reached: {}", last_step_index);
 
-                let sys_time = std::time::SystemTime::now();
-                let sys_local_datetime: DateTime<Local> = sys_time.into();
-                let formatted_sys_time = sys_local_datetime.format("%Y-%m-%d %H:%M:%S").to_string();
-
                 let mut state_guard = hw_state.lock().await;
-                state_guard.last_dispense_time = Some(formatted_sys_time);
+                state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
                 state_guard.status = DispenserStatus::Operational;
                 state_guard.last_step_index = Some(last_step_index);
                 debug!(
