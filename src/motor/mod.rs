@@ -1,6 +1,6 @@
 pub mod stepper_28byj48;
-pub mod stepper_nema14;
 pub mod stepper_mock;
+pub mod stepper_nema14;
 
 pub enum StepMode {
     Full,
@@ -44,5 +44,4 @@ pub trait StepperMotor {
     fn requires_gpio(&self) -> bool {
         true
     }
-
 }

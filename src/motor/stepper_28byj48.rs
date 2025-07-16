@@ -1,7 +1,7 @@
+use crate::motor::{Direction, StepMode, StepperMotor};
 use rppal::gpio::{Gpio, Level::High, Level::Low};
 use std::time::Duration;
 use tracing::{debug, info};
-use crate::motor::{StepperMotor, Direction, StepMode};
 
 pub struct Stepper28BYJ48 {}
 

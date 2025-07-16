@@ -49,11 +49,18 @@ async fn get_with_auth(
 
 async fn get_hardware_status(
     client: &Client,
-    addr: SocketAddr
+    addr: SocketAddr,
 ) -> treat_dispenser_api::state::HealthStatus {
     let response = get_with_auth(client, addr, "/status", None).await;
-    assert!(response.status().is_success(), "Expected success, got: {}", response.status());
-    response.json::<treat_dispenser_api::state::HealthStatus>().await.unwrap()
+    assert!(
+        response.status().is_success(),
+        "Expected success, got: {}",
+        response.status()
+    );
+    response
+        .json::<treat_dispenser_api::state::HealthStatus>()
+        .await
+        .unwrap()
 }
 
 #[tokio::test]
@@ -78,7 +85,10 @@ async fn test_status_endpoint() {
 
     assert!(status_json.gpio_available == false);
     assert!(status_json.treats_available == false);
-    assert!(status_json.uptime_seconds > 0, "Uptime should be greater than 0");
+    assert!(
+        status_json.uptime_seconds > 0,
+        "Uptime should be greater than 0"
+    );
     assert!(status_json.dispenser_status == "Operational");
     assert!(status_json.last_dispensed.is_none());
     assert!(status_json.last_error_msg.is_none());
@@ -122,25 +132,21 @@ async fn test_dispense_endpoint_busy_response() {
 
     assert_eq!(response.status(), reqwest::StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(
-        hardware_status.dispenser_status,
-        "Dispensing",
+        hardware_status.dispenser_status, "Dispensing",
         "Dispenser should be in 'Dispensing' state"
     );
 
     wait_for_server(3500).await; // wait for mock dispensing to finish
     let hardware_status = get_hardware_status(&client, addr).await;
     assert_eq!(
-        hardware_status.dispenser_status,
-        "Cooldown",
+        hardware_status.dispenser_status, "Cooldown",
         "Dispenser should be in 'Cooldown' state after dispensing"
     );
 
     wait_for_server(5500).await; // Wait for cooldown period to finish
     let hardware_status = get_hardware_status(&client, addr).await;
     assert_eq!(
-        hardware_status.dispenser_status,
-        "Operational",
+        hardware_status.dispenser_status, "Operational",
         "Dispenser should be back to 'Operational' state after cooldown"
     );
-
 }

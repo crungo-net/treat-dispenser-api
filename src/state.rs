@@ -1,14 +1,14 @@
 use rppal::gpio::Gpio;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
-use std::fmt;
 
 use crate::motor::StepperMotor;
-use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
+use crate::motor::stepper_mock::StepperMock;
 
 pub type HwStateMutex = Arc<Mutex<DispenserState>>;
 
@@ -49,7 +49,7 @@ pub struct DispenserState {
     pub last_error_msg: Option<String>,
     pub last_error_time: Option<String>,
     pub last_step_index: Option<u32>,
-    pub motor: Arc<Box <dyn StepperMotor + Send + Sync>>,
+    pub motor: Arc<Box<dyn StepperMotor + Send + Sync>>,
 }
 
 impl DispenserState {
@@ -64,7 +64,7 @@ impl DispenserState {
             Ok(motor) => {
                 info!("Motor selected: {}", motor.get_name());
                 Arc::new(motor)
-            },
+            }
             Err(e) => {
                 error!("Failed to select motor: {}", e);
                 std::process::exit(1);

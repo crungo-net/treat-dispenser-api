@@ -1,10 +1,10 @@
 use std::fmt::Display;
 
+use crate::state::{self, DispenserState, DispenserStatus};
+use crate::utils::datetime;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
-use crate::state::{self, DispenserState, DispenserStatus};
-use crate::utils::datetime;
 
 /// Records an error message and timestamp in the dispenser state
 /// This function is asynchronous and locks the state mutex to ensure thread safety.
@@ -23,7 +23,6 @@ pub fn set_dispenser_status(state: &Arc<Mutex<DispenserState>>, status: state::D
     state_guard.status = status.clone();
     info!("Dispenser status set to {:?}", status);
 }
-
 
 /// Sets the dispenser status asynchronously, acquiring a lock on the DispenserState.
 pub async fn set_dispenser_status_async(

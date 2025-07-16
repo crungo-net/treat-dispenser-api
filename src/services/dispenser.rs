@@ -2,10 +2,10 @@ use crate::error::ApiError;
 use crate::motor::{Direction, StepMode, StepperMotor};
 use crate::state::DispenserStatus;
 use crate::state::{HwStateMutex, set_dispenser_status};
+use crate::utils::datetime;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info};
-use crate::utils::datetime;
 
 /// Dispenses treats by controlling GPIO pins for a stepper motor.
 /// This function updates the dispenser state to "Dispensing" before starting the dispensing process.
