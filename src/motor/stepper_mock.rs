@@ -1,4 +1,4 @@
-use crate::motor::{StepperMotor, Direction, StepMode};
+use crate::motor::{Direction, StepMode, StepperMotor};
 use std::time::Duration;
 pub struct StepperMock {}
 
