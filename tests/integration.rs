@@ -15,9 +15,20 @@ async fn wait_for_server(millis: u64) {
 }
 
 async fn start_server() -> SocketAddr {
-    let config = treat_dispenser_api::load_app_config();
+    let config_str = r#"
+    api:
+      listen_address: "127.0.0.1:0"
+    nema14:
+      dir_pin: 26
+      step_pin: 19
+      sleep_pin: 13
+      reset_pin: 6
+      enable_pin: 17
+    "#;
+
+    let config = treat_dispenser_api::load_app_config_from_str(config_str);
     let app = build_app(config.clone());
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = TcpListener::bind(config.api.listen_address).await.unwrap();
     let addr = listener.local_addr().unwrap();
 
     tokio::spawn(async move {
