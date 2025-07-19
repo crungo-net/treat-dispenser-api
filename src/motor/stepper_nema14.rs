@@ -38,24 +38,27 @@ impl StepperMotor for StepperNema14 {
             Ok(_gpio) => {
                 let mut step_pin = self.get_step_pin()?;
                 let mut dir_pin = self.get_direction_pin()?;
-                let mut sleep_pin = self.get_sleep_pin()?;
-                let mut reset_pin = self.get_reset_pin()?;
+                let mut _sleep_pin = self.get_sleep_pin()?;
+                let mut _reset_pin = self.get_reset_pin()?;
                 
-                sleep_pin.write(rppal::gpio::Level::High);
-                reset_pin.write(rppal::gpio::Level::High);
+                //sleep_pin.write(rppal::gpio::Level::High);
+                //reset_pin.write(rppal::gpio::Level::High);
+                let mut enable_pin = self.get_enable_pin()?;
+                enable_pin.write(rppal::gpio::Level::Low); // Enable the motor
 
                 match direction {
-                    Direction::Clockwise => dir_pin.write(rppal::gpio::Level::Low),
-                    Direction::CounterClockwise => dir_pin.write(rppal::gpio::Level::High),
+                    Direction::Clockwise => dir_pin.write(rppal::gpio::Level::High),
+                    Direction::CounterClockwise => dir_pin.write(rppal::gpio::Level::Low),
                 }
 
                 for _ in 0..steps {
                     step_pin.write(rppal::gpio::Level::High);
-                    std::thread::sleep(Duration::from_micros(4000));
+                    std::thread::sleep(Duration::from_micros(1000));
                     step_pin.write(rppal::gpio::Level::Low);
-                    std::thread::sleep(Duration::from_micros(4000));
+                    std::thread::sleep(Duration::from_micros(1000));
                 }
 
+                enable_pin.write(rppal::gpio::Level::High);
                 Ok(steps)
             }
             Err(e) => {
@@ -103,6 +106,13 @@ impl StepperNema14 {
             .and_then(|gpio| gpio.get(6))
             .map(|pin| Ok(pin.into_output()))
             .unwrap_or_else(|_| Err("Failed to get reset pin".to_string()))
+    }
+
+    pub fn get_enable_pin(&self) -> Result<OutputPin, String> {
+        Gpio::new()
+            .and_then(|gpio| gpio.get(17))
+            .map(|pin| Ok(pin.into_output()))
+            .unwrap_or_else(|_| Err("Failed to get enable pin".to_string()))
     }
 
 }
