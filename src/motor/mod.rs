@@ -1,3 +1,5 @@
+use core::fmt;
+
 pub mod stepper_28byj48;
 pub mod stepper_mock;
 pub mod stepper_nema14;
@@ -8,6 +10,18 @@ pub enum StepMode {
     Quarter,
     Eighth,
     Sixteenth,
+}
+
+impl fmt::Display for StepMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StepMode::Full => write!(f, "Full"),
+            StepMode::Half => write!(f, "Half"),
+            StepMode::Quarter => write!(f, "Quarter"),
+            StepMode::Eighth => write!(f, "Eighth"),
+            StepMode::Sixteenth => write!(f, "Sixteenth"),
+        }
+    }
 }
 
 pub enum Direction {

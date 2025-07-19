@@ -120,7 +120,22 @@ Supported step modes for 28BYJ-48:
 - **Half step** (4096 steps per rotation, smoother motion)
 
 Other step modes (quarter, eighth, sixteenth) are defined but not implemented for this motor.
-Support for the NEMA-14 motor type and the A4988 stepper driver is planned.
+
+### NEMA-14 Motor Support
+
+The application also supports NEMA-14 stepper motors with the A4988 driver, using the following pin configuration:
+
+- Pin 26: Direction pin
+- Pin 19: Step pin  
+- Pin 13: Sleep pin
+- Pin 6: Reset pin
+
+The NEMA-14 motor:
+- Has 200 steps per full rotation (1.8° per step)
+- Currently supports full-step mode only
+- Requires proper power supply for the A4988 driver
+
+To use the NEMA-14 motor, set `MOTOR_TYPE=StepperNema14` in your environment variables.
 
 The motor control logic enforces a 5-second cooldown after each dispensing operation to protect hardware.
 
@@ -135,7 +150,7 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 | `DISPENSER_API_TOKEN` | Authentication token for API access | (Required) |
 | `DISPENSER_API_PORT` | Port to run the server on | `3500` |
 | `RUST_LOG` | Log level (trace, debug, info, warn, error) | `info` |
-| `MOTOR_TYPE` | Type of motor to use (Stepper28BYJ48, StepperMock) | `Stepper28BYJ48` |
+| `MOTOR_TYPE` | Type of motor to use (Stepper28BYJ48, StepperNema14, StepperMock) | `Stepper28BYJ48` |
 
 Example `.env` file:
 ```
