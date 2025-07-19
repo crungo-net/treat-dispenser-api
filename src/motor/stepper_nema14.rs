@@ -1,6 +1,9 @@
-use crate::motor::{Direction, StepMode, StepperMotor, config::{Nema14Config, load_nema14_config}};
+use crate::motor::{
+    Direction, StepMode, StepperMotor,
+    config::{Nema14Config, load_nema14_config},
+};
 
-use rppal::gpio::{Gpio, OutputPin, Pin};
+use rppal::gpio::{Gpio, OutputPin};
 use std::time::Duration;
 use tracing::info;
 

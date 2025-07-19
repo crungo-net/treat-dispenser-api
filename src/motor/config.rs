@@ -1,6 +1,6 @@
+use crate::utils::filesystem::get_nema14_config_path;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
-use crate::utils::filesystem::get_nema14_config_path;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Nema14Config {
@@ -32,16 +32,16 @@ pub fn load_nema14_config() -> Result<Nema14Config, String> {
     let config_str_result = std::fs::read_to_string(&config_path);
 
     match config_str_result {
-        Ok(config_str) => {
-            load_nema14_config_from_str(config_str.as_str())
-        }
+        Ok(config_str) => load_nema14_config_from_str(config_str.as_str()),
         Err(e) => {
-            warn!("Failed to read Nema14 config file (path: {}): {}", config_path, e);
+            warn!(
+                "Failed to read Nema14 config file (path: {}): {}",
+                config_path, e
+            );
             return Err(format!("Failed to read Nema14 config: {}", e));
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

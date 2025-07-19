@@ -6,12 +6,13 @@ use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
 
+use crate::AppConfig;
 use crate::motor::StepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
 
-pub type HwStateMutex = Arc<Mutex<DispenserState>>;
+pub type HwStateMutex = Arc<Mutex<ApplicationState>>;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub enum DispenserStatus {
@@ -42,7 +43,7 @@ pub struct HealthStatus {
     pub last_error_msg: Option<String>,
     pub last_error_time: Option<String>,
 }
-pub struct DispenserState {
+pub struct ApplicationState {
     pub gpio: Option<Gpio>,
     pub status: DispenserStatus,
     pub startup_time: SystemTime,
@@ -51,10 +52,11 @@ pub struct DispenserState {
     pub last_error_time: Option<String>,
     pub last_step_index: Option<u32>,
     pub motor: Arc<Box<dyn StepperMotor + Send + Sync>>,
+    pub app_config: AppConfig,
 }
 
-impl DispenserState {
-    pub fn new() -> Self {
+impl ApplicationState {
+    pub fn new(app_config: AppConfig) -> Self {
         let status: DispenserStatus;
 
         // Initialize motor here, assuming a default implementation exists
@@ -99,11 +101,12 @@ impl DispenserState {
             last_error_time: None,
             last_step_index: None,
             motor,
+            app_config,
         }
     }
 }
 
-pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus {
+pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatus {
     let state_guard = state.lock().await;
     let now = SystemTime::now();
 
@@ -145,7 +148,7 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
 }
 
 /// Acquires a lock on the DispenserState and sets the dispenser status synchronously.
-pub fn set_dispenser_status(state: &Arc<Mutex<DispenserState>>, status: DispenserStatus) {
+pub fn set_dispenser_status(state: &Arc<Mutex<ApplicationState>>, status: DispenserStatus) {
     let mut state_guard = state.blocking_lock();
     debug!("Lock acquired on DispenserState");
 
@@ -155,7 +158,7 @@ pub fn set_dispenser_status(state: &Arc<Mutex<DispenserState>>, status: Dispense
 }
 
 pub async fn set_dispenser_status_async(
-    state: &Arc<Mutex<DispenserState>>,
+    state: &Arc<Mutex<ApplicationState>>,
     status: DispenserStatus,
 ) {
     let mut state_guard = state.lock().await;

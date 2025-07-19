@@ -15,7 +15,8 @@ async fn wait_for_server(millis: u64) {
 }
 
 async fn start_server() -> SocketAddr {
-    let app = build_app();
+    let config = treat_dispenser_api::load_app_config();
+    let app = build_app(config.clone());
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
 

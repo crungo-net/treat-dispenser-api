@@ -10,6 +10,7 @@ pub mod utils;
 use axum::extract::ConnectInfo;
 use axum::http::Request;
 use axum::{Router, routing::get};
+use serde_yaml;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -33,14 +34,14 @@ pub fn configure_logging() {
 
 /// Builds the Axum application with routes and shared state.
 /// A TraceLayer is added for logging client request details.
-pub fn build_app() -> axum::Router {
-    let hw_state = Arc::new(Mutex::new(state::DispenserState::new()));
+pub fn build_app(app_config: AppConfig) -> axum::Router {
+    let app_state = Arc::new(Mutex::new(state::ApplicationState::new(app_config)));
 
     Router::new()
         .route("/", get(routes::root))
         .route("/status", get(routes::status::detailed_health))
         .route("/dispense", get(routes::dispense::dispense_treat))
-        .with_state(hw_state)
+        .with_state(app_state)
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
                 let request_ip_addr = request
@@ -59,4 +60,51 @@ pub fn build_app() -> axum::Router {
                 )
             }),
         )
+}
+
+pub async fn start_server(app: Router, config: AppConfig) {
+    let bind_address: SocketAddr = format!("{}", config.api.listen_address).parse().unwrap();
+    let listener = tokio::net::TcpListener::bind(bind_address)
+        .await
+        .expect("Failed to bind to address");
+
+    let shutdown_handler = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+        info!("Received shutdown signal, shutting down gracefully..."); 
+    };
+
+    info!("Starting server, API listening on {}", bind_address);
+
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(  shutdown_handler)   
+    .await
+    .expect("Failed to start server");
+}
+
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct ApiConfig {
+    pub listen_address: String,
+}
+
+#[derive(serde::Deserialize, Debug, Clone)]
+pub struct AppConfig {
+    pub api: ApiConfig,
+    pub nema14: Option<crate::motor::config::Nema14Config>,
+}
+
+pub fn load_app_config() -> AppConfig {
+    let app_config_path = utils::filesystem::get_config_path();
+    let config_str = std::fs::read_to_string(&app_config_path).expect(&format!(
+        "Failed to read app config file at {}",
+        app_config_path
+    ));
+
+    let app_config: AppConfig =
+        serde_yaml::from_str(&config_str).expect("Failed to parse app config file");
+    app_config
 }
