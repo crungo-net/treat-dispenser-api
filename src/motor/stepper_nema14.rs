@@ -1,11 +1,9 @@
-use crate::motor::{
-    Direction, StepMode, StepperMotor,
-};
+use crate::motor::{Direction, StepMode, StepperMotor};
 
 use rppal::gpio::{Gpio, OutputPin};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::info;
-use serde::{Deserialize, Serialize};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -83,9 +81,7 @@ impl StepperMotor for StepperNema14 {
 
 impl StepperNema14 {
     pub fn new(config: Nema14Config) -> Self {
-        StepperNema14 {
-            config
-        }
+        StepperNema14 { config }
     }
 
     pub fn get_direction_pin(&self) -> Result<OutputPin, String> {

@@ -12,7 +12,7 @@ use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
 
-pub type HwStateMutex = Arc<Mutex<ApplicationState>>;
+pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub enum DispenserStatus {
@@ -169,8 +169,10 @@ pub async fn set_dispenser_status_async(
     // lock is released here automatically when state_guard goes out of scope
 }
 
-fn init_motor(motor_type: String, config: AppConfig) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
-
+fn init_motor(
+    motor_type: String,
+    config: AppConfig,
+) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
         "StepperNema14" => {
@@ -179,7 +181,7 @@ fn init_motor(motor_type: String, config: AppConfig) -> Result<Box<dyn StepperMo
             }
             let nema14_config = config.nema14.clone().unwrap();
             Ok(Box::new(StepperNema14::new(nema14_config)))
-        },
+        }
         "StepperMock" => Ok(Box::new(StepperMock::new())),
         // Add more motor types here as needed
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),

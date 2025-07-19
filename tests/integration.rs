@@ -18,12 +18,15 @@ async fn start_server() -> SocketAddr {
     let config_str = r#"
     api:
       listen_address: "127.0.0.1:0"
+
     nema14:
       dir_pin: 26
       step_pin: 19
       sleep_pin: 13
       reset_pin: 6
       enable_pin: 17
+    
+    motor_cooldown_ms: 5000
     "#;
 
     let config = treat_dispenser_api::load_app_config_from_str(config_str);

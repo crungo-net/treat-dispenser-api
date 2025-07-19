@@ -15,7 +15,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
-use tracing::{Level, info, debug};
+use tracing::{Level, debug, info};
 use tracing_subscriber::EnvFilter;
 
 pub fn configure_logging() {
@@ -72,7 +72,7 @@ pub async fn start_server(app: Router, config: AppConfig) {
         tokio::signal::ctrl_c()
             .await
             .expect("Failed to install Ctrl+C handler");
-        info!("Received shutdown signal, shutting down gracefully..."); 
+        info!("Received shutdown signal, shutting down gracefully...");
     };
 
     info!("Starting server, API listening on {}", bind_address);
@@ -81,7 +81,7 @@ pub async fn start_server(app: Router, config: AppConfig) {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(  shutdown_handler)   
+    .with_graceful_shutdown(shutdown_handler)
     .await
     .expect("Failed to start server");
 }
@@ -95,6 +95,7 @@ pub struct ApiConfig {
 pub struct AppConfig {
     pub api: ApiConfig,
     pub nema14: Option<crate::motor::stepper_nema14::Nema14Config>,
+    pub motor_cooldown_ms: u64,
 }
 
 pub fn load_app_config_from_str(config_str: &str) -> AppConfig {
@@ -110,7 +111,6 @@ pub fn load_app_config() -> AppConfig {
 
     debug!("Loaded app config:\n{}", config_str);
 
-    let app_config: AppConfig =
-        load_app_config_from_str(&config_str);
+    let app_config: AppConfig = load_app_config_from_str(&config_str);
     app_config
 }

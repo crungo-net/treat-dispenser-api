@@ -1,6 +1,6 @@
 use tracing::{error, info};
-use treat_dispenser_api::{build_app, start_server, configure_logging};
 use treat_dispenser_api::load_app_config;
+use treat_dispenser_api::{build_app, configure_logging, start_server};
 
 #[tokio::main]
 async fn main() {
