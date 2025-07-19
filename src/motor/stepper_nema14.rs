@@ -1,6 +1,6 @@
 use crate::motor::{Direction, StepMode, StepperMotor};
 
-use rppal::gpio::{Gpio};
+use rppal::gpio::{Gpio, OutputPin};
 use std::time::Duration;
 use tracing::info;
 
@@ -35,32 +35,14 @@ impl StepperMotor for StepperNema14 {
 
         match Gpio::new() {
 
-            Ok(gpio) => {
-                let mut step_pin = gpio
-                    .get(19)
-                    .map_err(|e| format!("Failed to get GPIO pin: {}", e))?
-                    .into_output();
-
-                let mut dir_pin = gpio
-                    .get(26)
-                    .map_err(|e| format!("Failed to get GPIO pin: {}", e))?
-                    .into_output();
-
-                let mut sleep_pin = gpio
-                    .get(13)
-                    .map_err(|e| format!("Failed to get GPIO pin: {}", e))?
-                    .into_output();
-
-                let mut reset_pin = gpio
-                    .get(6)
-                    .map_err(|e| format!("Failed to get GPIO pin: {}", e))?
-                    .into_output();
+            Ok(_gpio) => {
+                let mut step_pin = self.get_step_pin()?;
+                let mut dir_pin = self.get_direction_pin()?;
+                let mut sleep_pin = self.get_sleep_pin()?;
+                let mut reset_pin = self.get_reset_pin()?;
                 
                 sleep_pin.write(rppal::gpio::Level::High);
                 reset_pin.write(rppal::gpio::Level::High);
-
-
-                let _delay_between_steps_ms = 1;
 
                 match direction {
                     Direction::Clockwise => dir_pin.write(rppal::gpio::Level::Low),
@@ -69,9 +51,9 @@ impl StepperMotor for StepperNema14 {
 
                 for _ in 0..steps {
                     step_pin.write(rppal::gpio::Level::High);
-                    std::thread::sleep(Duration::from_micros(5000));
+                    std::thread::sleep(Duration::from_micros(4000));
                     step_pin.write(rppal::gpio::Level::Low);
-                    std::thread::sleep(Duration::from_micros(5000));
+                    std::thread::sleep(Duration::from_micros(4000));
                 }
 
                 Ok(steps)
@@ -97,4 +79,30 @@ impl StepperNema14 {
     pub fn new() -> Self {
         StepperNema14 {}
     }
+
+    pub fn get_direction_pin(&self) -> Result<OutputPin, String> {
+        Gpio::new()
+            .and_then(|gpio| gpio.get(26))
+            .map(|pin| Ok(pin.into_output()))
+            .unwrap_or_else(|_| Err("Failed to get direction pin".to_string()))
+    }
+    pub fn get_step_pin(&self) -> Result<OutputPin, String> {
+        Gpio::new()
+            .and_then(|gpio| gpio.get(19))
+            .map(|pin| Ok(pin.into_output()))
+            .unwrap_or_else(|_| Err("Failed to get step pin".to_string()))
+    }
+    pub fn get_sleep_pin(&self) -> Result<OutputPin, String> {
+        Gpio::new()
+            .and_then(|gpio| gpio.get(13))
+            .map(|pin| Ok(pin.into_output()))
+            .unwrap_or_else(|_| Err("Failed to get sleep pin".to_string()))
+    }
+    pub fn get_reset_pin(&self) -> Result<OutputPin, String> {
+        Gpio::new()
+            .and_then(|gpio| gpio.get(6))
+            .map(|pin| Ok(pin.into_output()))
+            .unwrap_or_else(|_| Err("Failed to get reset pin".to_string()))
+    }
+
 }
