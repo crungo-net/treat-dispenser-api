@@ -15,7 +15,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
-use tracing::{Level, info};
+use tracing::{Level, info, debug};
 use tracing_subscriber::EnvFilter;
 
 pub fn configure_logging() {
@@ -94,7 +94,11 @@ pub struct ApiConfig {
 #[derive(serde::Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub api: ApiConfig,
-    pub nema14: Option<crate::motor::config::Nema14Config>,
+    pub nema14: Option<crate::motor::stepper_nema14::Nema14Config>,
+}
+
+pub fn load_app_config_from_str(config_str: &str) -> AppConfig {
+    serde_yaml::from_str(config_str).expect("Failed to parse app config")
 }
 
 pub fn load_app_config() -> AppConfig {
@@ -104,7 +108,9 @@ pub fn load_app_config() -> AppConfig {
         app_config_path
     ));
 
+    debug!("Loaded app config:\n{}", config_str);
+
     let app_config: AppConfig =
-        serde_yaml::from_str(&config_str).expect("Failed to parse app config file");
+        load_app_config_from_str(&config_str);
     app_config
 }

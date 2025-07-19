@@ -1,11 +1,11 @@
 use crate::motor::{
     Direction, StepMode, StepperMotor,
-    config::{Nema14Config, load_nema14_config},
 };
 
 use rppal::gpio::{Gpio, OutputPin};
 use std::time::Duration;
 use tracing::info;
+use serde::{Deserialize, Serialize};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -82,9 +82,9 @@ impl StepperMotor for StepperNema14 {
 }
 
 impl StepperNema14 {
-    pub fn new() -> Self {
+    pub fn new(config: Nema14Config) -> Self {
         StepperNema14 {
-            config: load_nema14_config().unwrap_or_default(),
+            config
         }
     }
 
@@ -124,4 +124,13 @@ impl StepperNema14 {
             .map(|pin| Ok(pin.into_output()))
             .unwrap_or_else(|_| Err("Failed to get enable pin".to_string()))
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Nema14Config {
+    pub dir_pin: u8,
+    pub step_pin: u8,
+    pub sleep_pin: u8,
+    pub reset_pin: u8,
+    pub enable_pin: u8,
 }

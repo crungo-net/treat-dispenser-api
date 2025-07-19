@@ -1,6 +1,5 @@
 use core::fmt;
 
-pub mod config;
 pub mod stepper_28byj48;
 pub mod stepper_mock;
 pub mod stepper_nema14;

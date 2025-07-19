@@ -63,7 +63,7 @@ impl ApplicationState {
         let motor_env =
             std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string());
 
-        let motor = match init_motor(motor_env.to_string()) {
+        let motor = match init_motor(motor_env.to_string(), app_config.clone()) {
             Ok(motor) => {
                 info!("Motor initialized: {}", motor.get_name());
                 Arc::new(motor)
@@ -169,10 +169,17 @@ pub async fn set_dispenser_status_async(
     // lock is released here automatically when state_guard goes out of scope
 }
 
-fn init_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
+fn init_motor(motor_type: String, config: AppConfig) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
+
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
-        "StepperNema14" => Ok(Box::new(StepperNema14::new())),
+        "StepperNema14" => {
+            if config.nema14.is_none() {
+                return Err("Nema14 configuration is missing".to_string());
+            }
+            let nema14_config = config.nema14.clone().unwrap();
+            Ok(Box::new(StepperNema14::new(nema14_config)))
+        },
         "StepperMock" => Ok(Box::new(StepperMock::new())),
         // Add more motor types here as needed
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),
