@@ -129,15 +129,16 @@ The application also supports NEMA-14 stepper motors with the A4988 driver, usin
 - Pin 19: Step pin  
 - Pin 13: Sleep pin
 - Pin 6: Reset pin
+- Pin 17: Enable pin
 
 The NEMA-14 motor:
 - Has 200 steps per full rotation (1.8° per step)
 - Currently supports full-step mode only
-- Requires proper power supply for the A4988 driver
+- Requires proper power supply for the A4988 driver (DC 12V 2A)
 
 To use the NEMA-14 motor, set `MOTOR_TYPE=StepperNema14` in your environment variables.
 
-The motor control logic enforces a 5-second cooldown after each dispensing operation to protect hardware.
+The motor control logic enforces a configurable cooldown period after each dispensing operation to protect hardware (default: 5 seconds, configurable via `MOTOR_COOLDOWN_MS` or in the YAML configuration).
 
 ### Motor Type Configuration
 
@@ -160,6 +161,32 @@ RUST_LOG=info
 MOTOR_TYPE=Stepper28BYJ48
 ```
 
+## Configuration
+
+The application uses a multi-layered approach to configuration:
+
+1. **Environment Variables**: Basic configuration is loaded from environment variables or a `.env` file (see [Environment Variables](#environment-variables) section).
+
+2. **Application Config**: The `AppConfig` struct centralizes configuration settings:
+   - `api`: API server configuration (listen address)
+   - `nema14`: Optional NEMA-14 specific settings
+   - `motor_cooldown_ms`: Cooldown period after dispensing
+
+Example YAML configuration:
+```yaml
+api:
+  listen_address: 0.0.0.0:3500
+nema14:
+  dir_pin: 23
+  step_pin: 19
+  sleep_pin: 13
+  reset_pin: 6
+  enable_pin: 17
+motor_cooldown_ms: 5000
+```
+
+This configuration structure makes the application more maintainable as it grows, and allows for easier testing with custom configurations.
+
 ## Code Structure
 
 - `src/main.rs` – Application entry point, sets up routes, logging, and server.
@@ -167,6 +194,10 @@ MOTOR_TYPE=Stepper28BYJ48
 - `src/state.rs` – System state tracking and health monitoring.
 - `src/error.rs` – Error handling and HTTP response mapping.
 - `src/motor/` – Stepper motor trait, real and mock implementations, and motor selection logic.
+    - `mod.rs` – Motor trait and module exports
+    - `stepper_28byj48.rs` – 28BYJ-48 motor implementation for ULN2003 driver
+    - `stepper_nema14.rs` – NEMA-14 motor implementation for A4988 driver
+    - `stepper_mock.rs` – Mock motor for testing and fallback
 - `src/services/` – Business logic layer (hardware control, treat dispensing, etc.)
     - `mod.rs` – Exports service modules
     - `dispenser.rs` – Treat dispensing logic
@@ -180,6 +211,7 @@ MOTOR_TYPE=Stepper28BYJ48
 - `src/utils/` – Utility functions and helpers
     - `mod.rs` – Exports utility modules
     - `datetime.rs` – Date/time formatting utilities
+    - `filesystem.rs` – File system operations and path handling
     - `state_helpers.rs` – State manipulation helpers
 
 This structure separates business logic, hardware integration, HTTP interface, and utility functions for clarity and maintainability. Each module has a single responsibility, making the codebase easier to test and extend as new features are added.
@@ -229,6 +261,29 @@ cargo test --test integration
 Integration tests verify the full API functionality by starting a test server and making HTTP requests to the endpoints.
 
 For better test parallelism, tests that require sequential execution (like testing busy states) are grouped together in single test functions.
+
+## Installation
+
+### Option 1: Direct Installation
+
+1. **Clone the repository**
+
+2. **Install configuration files**
+   ```sh
+   sudo mkdir -p /etc/treat-dispenser-api
+   sudo cp config/config.yaml /etc/treat-dispenser-api/
+   sudo cp config/nema14_config.yaml /etc/treat-dispenser-api/
+   ```
+
+3. **Build and install the binary**
+   ```sh
+   cargo build --release
+   sudo cp target/release/treat-dispenser-api /usr/local/bin/
+   ```
+
+### Option 2: Docker Installation
+
+Follow the [Docker Support](#docker-support) section instructions to build and run the containerized version.
 
 ## License
 

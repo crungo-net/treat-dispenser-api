@@ -6,12 +6,13 @@ use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tracing::{debug, error, info};
 
+use crate::AppConfig;
 use crate::motor::StepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
 
-pub type HwStateMutex = Arc<Mutex<DispenserState>>;
+pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub enum DispenserStatus {
@@ -42,7 +43,7 @@ pub struct HealthStatus {
     pub last_error_msg: Option<String>,
     pub last_error_time: Option<String>,
 }
-pub struct DispenserState {
+pub struct ApplicationState {
     pub gpio: Option<Gpio>,
     pub status: DispenserStatus,
     pub startup_time: SystemTime,
@@ -51,19 +52,20 @@ pub struct DispenserState {
     pub last_error_time: Option<String>,
     pub last_step_index: Option<u32>,
     pub motor: Arc<Box<dyn StepperMotor + Send + Sync>>,
+    pub app_config: AppConfig,
 }
 
-impl DispenserState {
-    pub fn new() -> Self {
+impl ApplicationState {
+    pub fn new(app_config: AppConfig) -> Self {
         let status: DispenserStatus;
 
         // Initialize motor here, assuming a default implementation exists
         let motor_env =
             std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string());
 
-        let motor = match select_motor(motor_env.to_string()) {
+        let motor = match init_motor(motor_env.to_string(), app_config.clone()) {
             Ok(motor) => {
-                info!("Motor selected: {}", motor.get_name());
+                info!("Motor initialized: {}", motor.get_name());
                 Arc::new(motor)
             }
             Err(e) => {
@@ -99,18 +101,19 @@ impl DispenserState {
             last_error_time: None,
             last_step_index: None,
             motor,
+            app_config,
         }
     }
 }
 
-pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus {
+pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatus {
     let state_guard = state.lock().await;
     let now = SystemTime::now();
 
     let gpio_available = state_guard.gpio.is_some();
 
     let treats_available = match &state_guard.gpio {
-        Some(gpio) => {
+        Some(_gpio) => {
             // Placeholder for sensor logic to check if treats are available
             true
         }
@@ -118,7 +121,7 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
     };
 
     let motor_operational = match &state_guard.gpio {
-        Some(gpio) => {
+        Some(_gpio) => {
             // Placeholder for actual motor operational check logic
             true
         }
@@ -145,7 +148,7 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
 }
 
 /// Acquires a lock on the DispenserState and sets the dispenser status synchronously.
-pub fn set_dispenser_status(state: &Arc<Mutex<DispenserState>>, status: DispenserStatus) {
+pub fn set_dispenser_status(state: &Arc<Mutex<ApplicationState>>, status: DispenserStatus) {
     let mut state_guard = state.blocking_lock();
     debug!("Lock acquired on DispenserState");
 
@@ -155,7 +158,7 @@ pub fn set_dispenser_status(state: &Arc<Mutex<DispenserState>>, status: Dispense
 }
 
 pub async fn set_dispenser_status_async(
-    state: &Arc<Mutex<DispenserState>>,
+    state: &Arc<Mutex<ApplicationState>>,
     status: DispenserStatus,
 ) {
     let mut state_guard = state.lock().await;
@@ -166,10 +169,19 @@ pub async fn set_dispenser_status_async(
     // lock is released here automatically when state_guard goes out of scope
 }
 
-fn select_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
+fn init_motor(
+    motor_type: String,
+    config: AppConfig,
+) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
-        "StepperNema14" => Ok(Box::new(StepperNema14::new())),
+        "StepperNema14" => {
+            if config.nema14.is_none() {
+                return Err("Nema14 configuration is missing".to_string());
+            }
+            let nema14_config = config.nema14.clone().unwrap();
+            Ok(Box::new(StepperNema14::new(nema14_config)))
+        }
         "StepperMock" => Ok(Box::new(StepperMock::new())),
         // Add more motor types here as needed
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),

@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 pub async fn dispense_treat(
     _auth: Auth,
-    State(hw_state): State<state::HwStateMutex>,
+    State(hw_state): State<state::AppStateMutex>,
 ) -> Result<&'static str, ApiError> {
     let hw_state_clone = Arc::clone(&hw_state);
 

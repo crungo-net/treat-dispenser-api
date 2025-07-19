@@ -1,7 +1,6 @@
-use axum::serve;
-use std::net::SocketAddr;
 use tracing::{error, info};
-use treat_dispenser_api::{build_app, configure_logging};
+use treat_dispenser_api::load_app_config;
+use treat_dispenser_api::{build_app, configure_logging, start_server};
 
 #[tokio::main]
 async fn main() {
@@ -17,26 +16,7 @@ async fn main() {
         error!("DISPENSER_API_TOKEN environment variable is not set or is empty");
         std::process::exit(1);
     }
-
-    let app = build_app();
-    let port = std::env::var("DISPENSER_API_PORT").unwrap_or_else(|_| "3500".to_string());
-    let bind_address: SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
-    let listener = tokio::net::TcpListener::bind(bind_address).await.unwrap();
-
-    info!("Listening on {}", bind_address);
-
-    let shutdown_signal = async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("Failed to install Ctrl+C handler");
-        info!("Received shutdown signal, shutting down gracefully...");
-    };
-
-    serve(
-        listener,
-        app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .with_graceful_shutdown(shutdown_signal)
-    .await
-    .unwrap();
+    let config = load_app_config();
+    let app = build_app(config.clone());
+    start_server(app, config).await;
 }
