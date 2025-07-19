@@ -61,9 +61,9 @@ impl DispenserState {
         let motor_env =
             std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string());
 
-        let motor = match select_motor(motor_env.to_string()) {
+        let motor = match init_motor(motor_env.to_string()) {
             Ok(motor) => {
-                info!("Motor selected: {}", motor.get_name());
+                info!("Motor initialized: {}", motor.get_name());
                 Arc::new(motor)
             }
             Err(e) => {
@@ -110,7 +110,7 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
     let gpio_available = state_guard.gpio.is_some();
 
     let treats_available = match &state_guard.gpio {
-        Some(gpio) => {
+        Some(_gpio) => {
             // Placeholder for sensor logic to check if treats are available
             true
         }
@@ -118,7 +118,7 @@ pub async fn check_hardware(state: &Arc<Mutex<DispenserState>>) -> HealthStatus 
     };
 
     let motor_operational = match &state_guard.gpio {
-        Some(gpio) => {
+        Some(_gpio) => {
             // Placeholder for actual motor operational check logic
             true
         }
@@ -166,7 +166,7 @@ pub async fn set_dispenser_status_async(
     // lock is released here automatically when state_guard goes out of scope
 }
 
-fn select_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
+fn init_motor(motor_type: String) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
         "StepperNema14" => Ok(Box::new(StepperNema14::new())),
