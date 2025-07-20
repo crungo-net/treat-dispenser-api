@@ -53,11 +53,12 @@ impl StepperMotor for StepperNema14 {
                     Direction::CounterClockwise => dir_pin.write(rppal::gpio::Level::Low),
                 }
 
+                let step_speed_us = self.config.step_speed_us.or(Some(1000)).unwrap();
                 for _ in 0..steps {
                     step_pin.write(rppal::gpio::Level::High);
-                    std::thread::sleep(Duration::from_micros(1000));
+                    std::thread::sleep(Duration::from_micros(step_speed_us));
                     step_pin.write(rppal::gpio::Level::Low);
-                    std::thread::sleep(Duration::from_micros(1000));
+                    std::thread::sleep(Duration::from_micros(step_speed_us));
                 }
 
                 enable_pin.write(rppal::gpio::Level::High);
@@ -129,4 +130,5 @@ pub struct Nema14Config {
     pub sleep_pin: u8,
     pub reset_pin: u8,
     pub enable_pin: u8,
+    pub step_speed_us: Option<u64>, // Speed in microseconds per step
 }
