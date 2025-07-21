@@ -38,14 +38,14 @@ impl StepperMotor for StepperNema14 {
 
         match Gpio::new() {
             Ok(_gpio) => {
-                let mut step_pin = self.get_step_pin()?;
-                let mut dir_pin = self.get_direction_pin()?;
-                let mut sleep_pin = self.get_sleep_pin()?;
-                let mut reset_pin = self.get_reset_pin()?;
+                let mut step_pin = self.get_output_pin(self.config.step_pin)?;
+                let mut dir_pin = self.get_output_pin(self.config.dir_pin)?;
+                let mut sleep_pin = self.get_output_pin(self.config.sleep_pin)?;
+                let mut reset_pin = self.get_output_pin(self.config.reset_pin)?;
+                let mut enable_pin = self.get_output_pin(self.config.enable_pin)?;
 
                 sleep_pin.write(rppal::gpio::Level::High);
                 reset_pin.write(rppal::gpio::Level::High);
-                let mut enable_pin = self.get_enable_pin()?;
                 enable_pin.write(rppal::gpio::Level::Low); // Enable the motor
 
                 match direction {
@@ -53,11 +53,12 @@ impl StepperMotor for StepperNema14 {
                     Direction::CounterClockwise => dir_pin.write(rppal::gpio::Level::Low),
                 }
 
+                let step_speed_us = self.config.step_speed_us.or(Some(1000)).unwrap();
                 for _ in 0..steps {
                     step_pin.write(rppal::gpio::Level::High);
-                    std::thread::sleep(Duration::from_micros(1000));
+                    std::thread::sleep(Duration::from_micros(step_speed_us));
                     step_pin.write(rppal::gpio::Level::Low);
-                    std::thread::sleep(Duration::from_micros(1000));
+                    std::thread::sleep(Duration::from_micros(step_speed_us));
                 }
 
                 enable_pin.write(rppal::gpio::Level::High);
@@ -84,41 +85,11 @@ impl StepperNema14 {
         StepperNema14 { config }
     }
 
-    pub fn get_direction_pin(&self) -> Result<OutputPin, String> {
-        let pin_num = self.config.dir_pin;
+    fn get_output_pin(&self, pin_num: u8) -> Result<OutputPin, String> {
         Gpio::new()
             .and_then(|gpio| gpio.get(pin_num))
             .map(|pin| Ok(pin.into_output()))
-            .unwrap_or_else(|_| Err("Failed to get direction pin".to_string()))
-    }
-    pub fn get_step_pin(&self) -> Result<OutputPin, String> {
-        let pin_num = self.config.step_pin;
-        Gpio::new()
-            .and_then(|gpio| gpio.get(pin_num))
-            .map(|pin| Ok(pin.into_output()))
-            .unwrap_or_else(|_| Err("Failed to get step pin".to_string()))
-    }
-    pub fn get_sleep_pin(&self) -> Result<OutputPin, String> {
-        let pin_num = self.config.sleep_pin;
-        Gpio::new()
-            .and_then(|gpio| gpio.get(pin_num))
-            .map(|pin| Ok(pin.into_output()))
-            .unwrap_or_else(|_| Err("Failed to get sleep pin".to_string()))
-    }
-    pub fn get_reset_pin(&self) -> Result<OutputPin, String> {
-        let pin_num = self.config.reset_pin;
-        Gpio::new()
-            .and_then(|gpio| gpio.get(pin_num))
-            .map(|pin| Ok(pin.into_output()))
-            .unwrap_or_else(|_| Err("Failed to get reset pin".to_string()))
-    }
-
-    pub fn get_enable_pin(&self) -> Result<OutputPin, String> {
-        let pin_num = self.config.enable_pin;
-        Gpio::new()
-            .and_then(|gpio| gpio.get(pin_num))
-            .map(|pin| Ok(pin.into_output()))
-            .unwrap_or_else(|_| Err("Failed to get enable pin".to_string()))
+            .unwrap_or_else(|_| Err(format!("Failed to get pin {}", pin_num)))
     }
 }
 
@@ -129,4 +100,5 @@ pub struct Nema14Config {
     pub sleep_pin: u8,
     pub reset_pin: u8,
     pub enable_pin: u8,
+    pub step_speed_us: Option<u64>, // Speed in microseconds per step
 }
