@@ -4,6 +4,7 @@ use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::info;
+use rand::Rng;
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -60,10 +61,16 @@ impl StepperMotor for StepperNema14 {
                     Direction::Clockwise => true,
                     Direction::CounterClockwise => false,
                 };
+
+                // randomize number of steps before toggling direction
+                // we want to toggle direction pin every 110-200 steps (200 is full rotation), helps prevent treats from jamming
+                let mut rng = rand::rng();
+                let dir_toggle_step_range = 110..=200;
+                let mut random_steps = rng.random_range(dir_toggle_step_range.clone());
+
                 for _ in 0..steps {
-                    // toggle direction pin every 120 steps (200 is full rotation), helps prevent treats from jamming
                     i += 1;
-                    if i % 120 == 0 {
+                    if i % random_steps == 0 {
                         if is_dir_high {
                             dir_pin.write(rppal::gpio::Level::Low);
                             is_dir_high = false;
@@ -73,6 +80,7 @@ impl StepperMotor for StepperNema14 {
                         }
                         info!("Direction pin toggled at step {}", i);
                         i = 0; // Reset the counter after toggling
+                        random_steps = rng.random_range(dir_toggle_step_range.clone());
                     }
 
                     // pulse the step pin to move motor shaft
