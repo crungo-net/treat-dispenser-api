@@ -54,7 +54,28 @@ impl StepperMotor for StepperNema14 {
                 }
 
                 let step_speed_us = self.config.step_speed_us.or(Some(1000)).unwrap();
+
+                let mut i = 0;
+                let mut is_dir_high = match direction {
+                    Direction::Clockwise => true,
+                    Direction::CounterClockwise => false,
+                };
                 for _ in 0..steps {
+                    // toggle direction pin every 120 steps (200 is full rotation), helps prevent treats from jamming
+                    i += 1;
+                    if i % 120 == 0 {
+                        if is_dir_high {
+                            dir_pin.write(rppal::gpio::Level::Low);
+                            is_dir_high = false;
+                        } else {
+                            dir_pin.write(rppal::gpio::Level::High);
+                            is_dir_high = true;
+                        }
+                        info!("Direction pin toggled at step {}", i);
+                        i = 0; // Reset the counter after toggling
+                    }
+
+                    // pulse the step pin to move motor shaft
                     step_pin.write(rppal::gpio::Level::High);
                     std::thread::sleep(Duration::from_micros(step_speed_us));
                     step_pin.write(rppal::gpio::Level::Low);
