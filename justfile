@@ -10,7 +10,11 @@ build-arm64-binary:
 	cp target/aarch64-unknown-linux-musl/release/treat-dispenser-api {{binary_export_dest}}/treat-dispenser-api-aarch64
 
 build-deb-package:
-	@echo Not implemented yet
-
+	just build-arm64-binary
+	cargo deb --target aarch64-unknown-linux-musl --no-build --no-strip
+	
 test:
 	cargo test -- --show-output
+
+get-latest-deb-release:
+	gh release download -p '*.deb' --dir dist/

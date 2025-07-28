@@ -149,7 +149,6 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `DISPENSER_API_TOKEN` | Authentication token for API access | (Required) |
-| `DISPENSER_API_PORT` | Port to run the server on | `3500` |
 | `RUST_LOG` | Log level (trace, debug, info, warn, error) | `info` |
 | `MOTOR_TYPE` | Type of motor to use (Stepper28BYJ48, StepperNema14, StepperMock) | `Stepper28BYJ48` |
 
@@ -284,6 +283,36 @@ For better test parallelism, tests that require sequential execution (like testi
 ### Option 2: Docker Installation
 
 Follow the [Docker Support](#docker-support) section instructions to build and run the containerized version.
+
+## Debian Package (Raspberry Pi, ARM64)
+
+Pre-built `.deb` packages for Raspberry Pi (arm64) are produced by the CI pipeline and can be found in the project releases or CI artifacts (see the `dist/` directory).
+
+### Download and Install
+
+1. **Download the latest `.deb` package**
+   - From the [GitHub Releases](https://github.com/crungo-net/treat-dispenser-api/releases) page, or
+   - From your CI/CD pipeline's `dist/` artifacts
+
+2. **Copy the package to your Raspberry Pi**
+   ```sh
+   scp treat-dispenser-api_*_arm64.deb pi@raspberrypi.local:~
+   # or use wget/curl to download directly on the Pi
+   ```
+
+3. **Install the package**
+   ```sh
+   sudo dpkg -i treat-dispenser-api_*_arm64.deb
+   sudo systemctl restart treat-dispenser-api
+   ```
+
+- The service will start automatically and be enabled on boot.
+- Configuration files are installed to `/etc/treat-dispenser-api/`.
+- Logs are available via `journalctl -u treat-dispenser-api`.
+
+### Upgrading
+
+To upgrade, simply install the new `.deb` package with `dpkg -i` as above. Your configuration files will be preserved unless you remove the package with `--purge`.
 
 ## License
 
