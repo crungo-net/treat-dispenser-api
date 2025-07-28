@@ -27,7 +27,7 @@ pub fn configure_logging() {
             }),
         )
         .with_thread_ids(true)
-        .with_thread_names(true)
+        .with_thread_names(false)
         .with_writer(std::io::stdout) // log to stdout for compat with containerized environments
         .init();
 }

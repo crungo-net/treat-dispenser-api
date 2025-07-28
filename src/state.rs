@@ -4,7 +4,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 
 use crate::AppConfig;
 use crate::motor::StepperMotor;
@@ -150,8 +150,6 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatu
 /// Acquires a lock on the DispenserState and sets the dispenser status synchronously.
 pub fn set_dispenser_status(state: &Arc<Mutex<ApplicationState>>, status: DispenserStatus) {
     let mut state_guard = state.blocking_lock();
-    debug!("Lock acquired on DispenserState");
-
     state_guard.status = status.clone();
     info!("Dispenser status set to {:?}", status);
     // lock is released here automatically when state_guard goes out of scope
@@ -162,8 +160,6 @@ pub async fn set_dispenser_status_async(
     status: DispenserStatus,
 ) {
     let mut state_guard = state.lock().await;
-    debug!("Lock acquired on DispenserState");
-
     state_guard.status = status.clone();
     info!("Dispenser status set to {:?}", status);
     // lock is released here automatically when state_guard goes out of scope
