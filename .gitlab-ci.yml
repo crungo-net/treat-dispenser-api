@@ -109,6 +109,33 @@ build-arm64-binary:
       - dist/treat-dispenser-api-aarch64
     expire_in: 1 week
 
+build-deb-package:
+  stage: build
+  image: harbor.crungo.net/scout/rust-arm64-compiler:1.88
+  tags:
+    - fast
+  dependencies:
+    - build-arm64-binary
+  rules:
+    - if: '$CI_COMMIT_BRANCH'
+      when: always
+  script:
+    - cargo install cargo-deb
+    
+    # Create necessary directories and copy precompiled binary to where cargo-deb expects it
+    - mkdir -p target/aarch64-unknown-linux-musl/release
+    - cp dist/treat-dispenser-api-aarch64 target/aarch64-unknown-linux-musl/release/treat-dispenser-api
+    
+    # Create debian package without rebuilding the binary
+    - cargo deb --target aarch64-unknown-linux-musl --no-build --no-strip
+    
+    # Move the resulting .deb file to the dist directory
+    - cp target/aarch64-unknown-linux-musl/debian/*.deb dist/
+  artifacts:
+    paths:
+      - dist/*.deb
+    expire_in: 1 week
+
 tag-release:
   stage: tag
   image: harbor.crungo.net/scout/alpine-git:latest
@@ -158,10 +185,12 @@ fetch-artifacts-for-tag:
 
     glab job artifact main build-amd64-binary-and-image
     glab job artifact main build-arm64-binary
+    glab job artifact main build-deb-package
   artifacts:
     paths:
       - dist/treat-dispenser-api-amd64
       - dist/treat-dispenser-api-aarch64
+      - dist/*.deb
   
   variables:
     GITLAB_TOKEN: $GITLAB_PAT 
@@ -196,6 +225,7 @@ release-github:
     gh release create "$CI_COMMIT_TAG" \
       dist/treat-dispenser-api-amd64 \
       dist/treat-dispenser-api-aarch64 \
+      dist/*.deb \
       --repo github.com/crungo-net/treat-dispenser-api \
       --title "$RELEASE_NAME" \
       --notes "Automated release from GitLab CI for commit $CI_COMMIT_SHA

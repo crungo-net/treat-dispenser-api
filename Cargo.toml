@@ -1,7 +1,26 @@
 [package]
 name = "treat-dispenser-api"
-version = "1.3.0"
+version = "1.3.1"
 edition = "2024"
+
+
+[package.metadata.deb]
+maintainer = "Vincent Chu"
+copyright = "2025, Vincent Chu <contact@vincentchu.io>"
+license-file = ["LICENSE", "3"]
+extended-description = "API server for controlling a pet treat dispenser"
+depends = "$auto, systemd"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/treat-dispenser-api", "usr/bin/", "755"],
+    ["config/config.yaml", "etc/treat-dispenser-api/", "644"],
+    ["config/treat-dispenser-api.service", "lib/systemd/system/", "644"],
+    ["README.md", "usr/share/doc/treat-dispenser-api/", "644"],
+]
+conf-files = ["/etc/treat-dispenser-api/config.yaml"]
+maintainer-scripts = "debian/"
+systemd-units = { unit-name = "treat-dispenser-api" }
 
 [dependencies]
 axum = "0.8.4"

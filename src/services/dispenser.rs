@@ -52,7 +52,7 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
         let motor_task_result = tokio::task::spawn_blocking(move || {
             let step_mode = StepMode::Full;
             let dir = Direction::CounterClockwise;
-            let result = motor.run_motor_degrees(1080.0, &dir, &step_mode);
+            let result = motor.run_motor_degrees(2160.0, &dir, &step_mode);
 
             // enforce a cooldown period after operation
             set_dispenser_status(&app_state_clone, DispenserStatus::Cooldown);

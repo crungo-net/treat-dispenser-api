@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+# Create environment file if it doesn't exist
+if [ ! -f /etc/treat-dispenser-api/environment ]; then
+    mkdir -p /etc/treat-dispenser-api
+    cat > /etc/treat-dispenser-api/environment << ENVEOF
+DISPENSER_API_TOKEN=change_me_to_a_secure_token
+RUST_LOG=info
+MOTOR_TYPE=Stepper28BYJ48
+ENVEOF
+    chmod 600 /etc/treat-dispenser-api/environment
+fi
+
+# Enable and start service
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ]; then
+    systemctl daemon-reload
+    systemctl enable treat-dispenser-api.service
+    systemctl restart treat-dispenser-api.service || true
+fi
+
+#DEBHELPER#

@@ -1,0 +1,16 @@
+[Unit]
+Description=Treat Dispenser API Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+EnvironmentFile=/etc/treat-dispenser-api/environment
+ExecStart=/usr/bin/treat-dispenser-api
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

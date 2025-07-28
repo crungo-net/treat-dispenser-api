@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "purge" ]; then
+    rm -rf /etc/treat-dispenser-api
+fi
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+fi
+
+#DEBHELPER#
