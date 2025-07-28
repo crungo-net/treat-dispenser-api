@@ -116,6 +116,8 @@ build-deb-package:
     - fast
   dependencies:
     - build-arm64-binary
+  needs:
+    - build-arm64-binary
   rules:
     - if: '$CI_COMMIT_BRANCH'
       when: always
