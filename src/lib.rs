@@ -86,12 +86,12 @@ pub async fn start_server(app: Router, config: AppConfig) {
     .expect("Failed to start server");
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct ApiConfig {
     pub listen_address: String,
 }
 
-#[derive(serde::Deserialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct AppConfig {
     pub api: ApiConfig,
     pub nema14: Option<crate::motor::stepper_nema14::Nema14Config>,
@@ -109,8 +109,9 @@ pub fn load_app_config() -> AppConfig {
         app_config_path
     ));
 
-    debug!("Loaded app config:\n{}", config_str);
-
     let app_config: AppConfig = load_app_config_from_str(&config_str);
+
+    // Log the config struct as json
+    debug!("Parsed app config: {}", serde_json::to_string(&app_config).unwrap_or_default());
     app_config
 }
