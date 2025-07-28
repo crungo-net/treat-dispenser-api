@@ -16,5 +16,5 @@ build-deb-package:
 test:
 	cargo test -- --show-output
 
-get-latest-deb:
+get-latest-deb-release:
 	gh release download -p '*.deb' --dir dist/
