@@ -162,6 +162,7 @@ tag-release:
   needs:
     - build-amd64-binary-and-image
     - build-arm64-binary
+    - build-deb-package
 
 # use the gitlab CLI to fetch artifacts for the tag we want to release
 fetch-artifacts-for-tag:
