@@ -23,6 +23,8 @@ test:
 build-amd64-binary-and-image:
   stage: build
   image: harbor.crungo.net/docker-proxy/moby/buildkit:latest
+  needs:
+    - test
   rules:
     - if: '$CI_COMMIT_BRANCH'  # Only run if this is a branch pipeline
       when: always
@@ -85,6 +87,8 @@ build-arm64-binary:
   stage: build
   # for official Docker Hub images, we need to use the 'library' namespace
   image: harbor.crungo.net/scout/rust-arm64-compiler:1.88
+  needs:
+    - test
   tags:
     - fast
   rules:
