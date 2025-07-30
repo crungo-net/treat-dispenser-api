@@ -111,6 +111,9 @@ pub fn load_app_config() -> AppConfig {
     let app_config: AppConfig = load_app_config_from_str(&config_str);
 
     // Log the config struct as json
-    debug!("Parsed app config: {}", serde_json::to_string(&app_config).unwrap_or_default());
+    debug!(
+        "Parsed app config: {}",
+        serde_json::to_string(&app_config).unwrap_or_default()
+    );
     app_config
 }
