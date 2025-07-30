@@ -42,11 +42,15 @@ pub struct ApplicationState {
     pub last_step_index: Option<u32>,
     pub motor: Arc<Box<dyn StepperMotor + Send + Sync>>,
     pub app_config: AppConfig,
+    pub version: String,
 }
 
 impl ApplicationState {
     pub fn new(app_config: AppConfig) -> Self {
+        let version = env!("CARGO_PKG_VERSION").to_string();
         let status: DispenserStatus;
+
+        info!("Starting treat-dispenser-api, version: {}", version);
 
         // Initialize motor here, assuming a default implementation exists
         let motor_env =
@@ -91,6 +95,7 @@ impl ApplicationState {
             last_step_index: None,
             motor,
             app_config,
+            version
         }
     }
 }
