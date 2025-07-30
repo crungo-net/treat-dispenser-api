@@ -1,5 +1,5 @@
-use crate::state;
 use crate::services::status;
+use crate::state;
 use axum::extract::State;
 use axum::{Json, response::IntoResponse};
 use std::sync::Arc;

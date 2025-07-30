@@ -1,10 +1,10 @@
 use crate::motor::{Direction, StepMode, StepperMotor};
 
+use rand::Rng;
 use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::info;
-use rand::Rng;
 
 pub struct StepperNema14 {
     config: Nema14Config,

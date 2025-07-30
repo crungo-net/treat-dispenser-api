@@ -2,6 +2,7 @@ use reqwest::Client;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use treat_dispenser_api::build_app;
+use treat_dispenser_api::services::status::HealthStatus;
 
 async fn setup() -> (SocketAddr, Client) {
     dotenv::from_filename(".env.test").ok();
@@ -54,20 +55,14 @@ async fn get_with_auth(
     req.send().await.unwrap()
 }
 
-async fn get_hardware_status(
-    client: &Client,
-    addr: SocketAddr,
-) -> treat_dispenser_api::state::HealthStatus {
+async fn get_hardware_status(client: &Client, addr: SocketAddr) -> HealthStatus {
     let response = get_with_auth(client, addr, "/status", None).await;
     assert!(
         response.status().is_success(),
         "Expected success, got: {}",
         response.status()
     );
-    response
-        .json::<treat_dispenser_api::state::HealthStatus>()
-        .await
-        .unwrap()
+    response.json::<HealthStatus>().await.unwrap()
 }
 
 #[tokio::test]
@@ -85,10 +80,7 @@ async fn test_status_endpoint() {
     let response = get_with_auth(&client, addr, "/status", None).await;
     assert!(response.status().is_success());
 
-    let status_json = response
-        .json::<treat_dispenser_api::state::HealthStatus>()
-        .await
-        .unwrap();
+    let status_json = response.json::<HealthStatus>().await.unwrap();
 
     assert!(status_json.gpio_available == false);
     assert!(status_json.treats_available == false);

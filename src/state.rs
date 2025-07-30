@@ -1,5 +1,5 @@
 use rppal::gpio::Gpio;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -32,17 +32,6 @@ impl fmt::Display for DispenserStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HealthStatus {
-    pub gpio_available: bool,
-    pub motor_operational: bool,
-    pub treats_available: bool,
-    pub last_dispensed: Option<String>,
-    pub uptime_seconds: u64,
-    pub dispenser_status: String,
-    pub last_error_msg: Option<String>,
-    pub last_error_time: Option<String>,
-}
 pub struct ApplicationState {
     pub gpio: Option<Gpio>,
     pub status: DispenserStatus,
@@ -104,24 +93,6 @@ impl ApplicationState {
             app_config,
         }
     }
-}
-
-/// Acquires a lock on the DispenserState and sets the dispenser status synchronously.
-pub fn set_dispenser_status(state: &Arc<Mutex<ApplicationState>>, status: DispenserStatus) {
-    let mut state_guard = state.blocking_lock();
-    state_guard.status = status.clone();
-    info!("Dispenser status set to {:?}", status);
-    // lock is released here automatically when state_guard goes out of scope
-}
-
-pub async fn set_dispenser_status_async(
-    state: &Arc<Mutex<ApplicationState>>,
-    status: DispenserStatus,
-) {
-    let mut state_guard = state.lock().await;
-    state_guard.status = status.clone();
-    info!("Dispenser status set to {:?}", status);
-    // lock is released here automatically when state_guard goes out of scope
 }
 
 fn init_motor(

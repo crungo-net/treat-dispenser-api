@@ -1,7 +1,8 @@
+use crate::state::ApplicationState;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use crate::state::{ApplicationState, HealthStatus};
 use std::time::SystemTime;
+use tokio::sync::Mutex;
 
 pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatus {
     let state_guard = state.lock().await;
@@ -42,4 +43,16 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatu
         last_error_time: state_guard.last_error_time.clone(),
         dispenser_status: state_guard.status.clone().to_string(),
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct HealthStatus {
+    pub gpio_available: bool,
+    pub motor_operational: bool,
+    pub treats_available: bool,
+    pub last_dispensed: Option<String>,
+    pub uptime_seconds: u64,
+    pub dispenser_status: String,
+    pub last_error_msg: Option<String>,
+    pub last_error_time: Option<String>,
 }
