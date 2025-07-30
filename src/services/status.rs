@@ -43,6 +43,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatu
         last_error_time: state_guard.last_error_time.clone(),
         dispenser_status: state_guard.status.clone().to_string(),
         version: state_guard.version.clone(),
+        motor: state_guard.motor.get_name().clone(),
     }
 }
 
@@ -57,4 +58,5 @@ pub struct HealthStatus {
     pub last_error_msg: Option<String>,
     pub last_error_time: Option<String>,
     pub version: String,
+    pub motor: String,
 }

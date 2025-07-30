@@ -4,7 +4,7 @@ use rand::Rng;
 use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tracing::info;
+use tracing::{info, debug};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -78,7 +78,7 @@ impl StepperMotor for StepperNema14 {
                             dir_pin.write(rppal::gpio::Level::High);
                             is_dir_high = true;
                         }
-                        info!("Direction pin toggled at step {}", i);
+                        debug!("Direction pin toggled at step {}", i);
                         i = 0; // Reset the counter after toggling
                         random_steps = rng.random_range(dir_toggle_step_range.clone());
                     }
