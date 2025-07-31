@@ -65,8 +65,7 @@ impl StepperMotor for StepperNema14 {
                 // randomize number of steps before toggling direction
                 // we want to toggle direction pin every 110-200 steps (200 is full rotation), helps prevent treats from jamming
                 let mut rng = rand::rng();
-                let dir_toggle_step_range = 110..=200;
-                let mut random_steps = rng.random_range(dir_toggle_step_range.clone());
+                let mut random_steps = rng.random_range(110..=200);
 
                 for _ in 0..steps {
                     i += 1;
@@ -80,7 +79,7 @@ impl StepperMotor for StepperNema14 {
                         }
                         debug!("Direction pin toggled at step {}", i);
                         i = 0; // Reset the counter after toggling
-                        random_steps = rng.random_range(dir_toggle_step_range.clone());
+                        random_steps = rng.random_range(110..=200);
                     }
 
                     // pulse the step pin to move motor shaft
