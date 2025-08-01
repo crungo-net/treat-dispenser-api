@@ -11,7 +11,6 @@ use crate::motor::StepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
-use crate::sensors::ina219;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -71,7 +70,6 @@ impl ApplicationState {
         let gpio = match Gpio::new() {
             Ok(gpio) => {
                 info!("GPIO initialized successfully");
-                let _ina219 = ina219::init_ina219_sensor();
                 Some(gpio)
             }
             Err(e) => {

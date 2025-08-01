@@ -1,22 +1,25 @@
 use ina219::address::Address;
-use ina219::calibration::UnCalibrated;
+use ina219::calibration::IntCalibration;
+use ina219::calibration::MicroAmpere;
 use ina219::SyncIna219;
 use linux_embedded_hal::I2cdev;
 use tracing::{info, debug, error};
 
-pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, UnCalibrated>, String> {
+pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, String> {
     info!("Initializing INA219 sensor");
 
     // Initialize the I2C device
     let i2c = I2cdev::new("/dev/i2c-1").map_err(|e| format!("Failed to initialize I2C device: {}", e))?;
     debug!("I2C device initialized");
 
-    let address_byte = 0x40; // Default I2C address for INA219
+    let address_byte = 0x40; // Default I2C address for INA219, todo: make configurable
     let address = Address::from_byte(0x40).unwrap();
     debug!("Using default I2C address: {:#04X}", address_byte);
     
     // Create a new INA219 sensor instance
-    let ina219_init_result = SyncIna219::new(i2c, address);
+    // Calibrate with resolution of 1A, and a shunt of 100 milliohms (0.1 ohm)
+    let calibration = IntCalibration::new(MicroAmpere(1_000_000), 1_00);
+    let ina219_init_result = SyncIna219::new_calibrated(i2c, address, calibration);
 
     match ina219_init_result {
         Ok(_) => info!("INA219 sensor created successfully"),
@@ -27,7 +30,8 @@ pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, UnCalibrated>, String> 
         },
     }
 
-    std::thread::sleep(std::time::Duration::from_millis(5000)); // Allow time for sensor to stabilize
+    let ina219 = ina219_init_result.unwrap();
+
     info!("INA219 sensor initialized successfully at address {}", address.as_byte());
-    Ok(ina219_init_result.unwrap())
+    Ok(ina219)
 }

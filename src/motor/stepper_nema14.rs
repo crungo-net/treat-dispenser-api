@@ -5,6 +5,7 @@ use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::{info, debug};
+use crate::sensors::ina219;
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -67,7 +68,9 @@ impl StepperMotor for StepperNema14 {
                 let mut rng = rand::rng();
                 let mut random_steps = rng.random_range(110..=200);
 
-                for _ in 0..steps {
+                let mut ina219 = ina219::init_ina219_sensor().unwrap();
+
+                for step in 0..steps {
                     i += 1;
                     if i % random_steps == 0 {
                         if is_dir_high {
@@ -87,6 +90,15 @@ impl StepperMotor for StepperNema14 {
                     std::thread::sleep(Duration::from_micros(step_speed_us));
                     step_pin.write(rppal::gpio::Level::Low);
                     std::thread::sleep(Duration::from_micros(step_speed_us));
+
+                    if step % 500 == 0 {
+                        // Log current power consumption every 500 steps
+                        let bus_voltage = ina219.bus_voltage().unwrap().voltage_mv() / 1000.0 as u16;
+                        let current = ina219.current_raw().unwrap().0 as f32 / 1000.0;
+                        debug!("Voltage: {} v", bus_voltage);
+                        debug!("Current: {} a", current);
+                        debug!("Power: {} w", bus_voltage as f32 * current);
+                    }
                 }
 
                 enable_pin.write(rppal::gpio::Level::High);
