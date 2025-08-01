@@ -43,6 +43,7 @@ impl StepperMotor for StepperNema14 {
 
         let app_state_clone = Arc::clone(app_state);
 
+        // todo: error handling, don't just unwrap
         let power_monitor_arc_mutex = {
             let mut state_guard = app_state_clone.blocking_lock();
             state_guard.power_monitor.as_mut().unwrap().clone()
@@ -104,6 +105,8 @@ impl StepperMotor for StepperNema14 {
                         // Log current power consumption every 500 steps
                         let mut power_monitor = power_monitor_arc_mutex.blocking_lock();
                         let _power_reading = power_monitor.get_power_reading();
+
+                        // todo: handle power reading, e.g., log it or update state, stop motor if current exceeds threshold
                     }
                 }
 
