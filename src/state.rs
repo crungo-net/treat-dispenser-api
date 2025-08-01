@@ -11,6 +11,7 @@ use crate::motor::StepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
+use crate::sensors::power_monitor;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -43,6 +44,7 @@ pub struct ApplicationState {
     pub motor: Arc<Box<dyn StepperMotor + Send + Sync>>,
     pub app_config: AppConfig,
     pub version: String,
+    pub power_monitor: Option<Arc<Mutex<power_monitor::PowerMonitor>>>,
 }
 
 impl ApplicationState {
@@ -67,9 +69,12 @@ impl ApplicationState {
             }
         };
 
+        let mut power_monitor = None;
+
         let gpio = match Gpio::new() {
             Ok(gpio) => {
                 info!("GPIO initialized successfully");
+                power_monitor = Some(Arc::new(Mutex::new(power_monitor::PowerMonitor::new())));
                 Some(gpio)
             }
             Err(e) => {
@@ -95,7 +100,8 @@ impl ApplicationState {
             last_step_index: None,
             motor,
             app_config,
-            version
+            version,
+            power_monitor,
         }
     }
 }

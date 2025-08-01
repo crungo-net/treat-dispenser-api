@@ -1,4 +1,7 @@
 use core::fmt;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use crate::state::ApplicationState;
 
 pub mod stepper_28byj48;
 pub mod stepper_mock;
@@ -35,6 +38,7 @@ pub trait StepperMotor {
         steps: u32,
         direction: &Direction,
         step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
     ) -> Result<u32, String>;
 
     /// Runs the motor for a specified number of degrees in a given direction and step mode.
@@ -45,10 +49,11 @@ pub trait StepperMotor {
         degrees: f32,
         direction: &Direction,
         step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
     ) -> Result<u32, String> {
         let step_count =
             (degrees / 360.0 * self.get_step_count_for_full_rotation(step_mode) as f32) as u32;
-        self.run_motor(step_count, direction, step_mode)
+        self.run_motor(step_count, direction, step_mode, app_state)
     }
 
     fn get_step_count_for_full_rotation(&self, step_mode: &StepMode) -> u32;

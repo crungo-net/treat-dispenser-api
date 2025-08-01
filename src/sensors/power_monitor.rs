@@ -35,3 +35,46 @@ pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>
     info!("INA219 sensor initialized successfully at address {}", address.as_byte());
     Ok(ina219)
 }
+
+pub struct PowerReading {
+    pub bus_voltage_volts: f32,
+    pub current_amps: f32,
+    pub power_watts: f32,
+}
+
+pub struct PowerMonitor {
+    ina219: SyncIna219<I2cdev, Option<IntCalibration>>,
+}
+
+impl PowerMonitor {
+    pub fn new() -> Self {
+        let ina219 = init_ina219_sensor().unwrap_or_else(|e| {
+            error!("Failed to initialize INA219 sensor: {}", e);
+            panic!("INA219 sensor initialization failed");
+        });
+        PowerMonitor { ina219 }
+    }
+
+    pub fn get_bus_voltage(&mut self) -> Result<f32, String> {
+        let bus_voltage = self.ina219.bus_voltage().map_err(|e| format!("Failed to read bus voltage: {}", e))?;
+        Ok(bus_voltage.voltage_mv() as f32 / 1000.0) // Convert mV to V
+    }
+
+    pub fn get_current_amps(&mut self) -> Result<f32, String> {
+        let current = self.ina219.current_raw().map_err(|e| format!("Failed to read current: {}", e))?;
+        Ok(current.0 as f32 / 1000.0) // Convert ma to a
+    }
+
+    pub fn get_power_reading(&mut self) -> Result<PowerReading, String> {
+        let bus_voltage = self.get_bus_voltage()?;
+        let current = self.get_current_amps()?;
+        let power = bus_voltage * current;
+        debug!("Power reading: {} V, {} A, {} W", bus_voltage, current, power);
+
+        Ok(PowerReading {
+            bus_voltage_volts: bus_voltage,
+            current_amps: current,
+            power_watts: power,
+        })
+    }
+}

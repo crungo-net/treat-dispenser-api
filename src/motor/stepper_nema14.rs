@@ -5,7 +5,9 @@ use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::{info, debug};
-use crate::sensors::ina219;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use crate::state::{ApplicationState};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -25,6 +27,7 @@ impl StepperMotor for StepperNema14 {
         steps: u32,
         direction: &Direction,
         step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
     ) -> Result<u32, String> {
         info!("Starting NEMA14 motor with {} steps", steps);
 
@@ -37,6 +40,13 @@ impl StepperMotor for StepperNema14 {
                 return Err("Unsupported step mode for NEMA14".to_string());
             }
         }
+
+        let app_state_clone = Arc::clone(app_state);
+
+        let power_monitor_arc_mutex = {
+            let mut state_guard = app_state_clone.blocking_lock();
+            state_guard.power_monitor.as_mut().unwrap().clone()
+        };
 
         match Gpio::new() {
             Ok(_gpio) => {
@@ -68,7 +78,6 @@ impl StepperMotor for StepperNema14 {
                 let mut rng = rand::rng();
                 let mut random_steps = rng.random_range(110..=200);
 
-                let mut ina219 = ina219::init_ina219_sensor().unwrap();
 
                 for step in 0..steps {
                     i += 1;
@@ -93,14 +102,12 @@ impl StepperMotor for StepperNema14 {
 
                     if step % 500 == 0 {
                         // Log current power consumption every 500 steps
-                        let bus_voltage = ina219.bus_voltage().unwrap().voltage_mv() / 1000.0 as u16;
-                        let current = ina219.current_raw().unwrap().0 as f32 / 1000.0;
-                        debug!("Voltage: {} v", bus_voltage);
-                        debug!("Current: {} a", current);
-                        debug!("Power: {} w", bus_voltage as f32 * current);
+                        let mut power_monitor = power_monitor_arc_mutex.blocking_lock();
+                        let _power_reading = power_monitor.get_power_reading();
                     }
                 }
 
+                // Disables the motor after operation
                 enable_pin.write(rppal::gpio::Level::High);
                 Ok(steps)
             }
@@ -115,8 +122,9 @@ impl StepperMotor for StepperNema14 {
         degrees: f32,
         direction: &Direction,
         step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>
     ) -> Result<u32, String> {
-        self.run_motor((degrees / 1.80) as u32, direction, step_mode)
+        self.run_motor((degrees / 1.80) as u32, direction, step_mode, app_state)
     }
 }
 
