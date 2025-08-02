@@ -43,6 +43,16 @@ pub struct PowerReading {
     pub power_watts: f32,
 }
 
+impl PowerReading {
+    pub fn dummy() -> Self {
+        PowerReading {
+            bus_voltage_volts: -1.0,
+            current_amps: -1.0,
+            power_watts: -1.0,
+        }
+    }
+}
+
 pub struct PowerMonitor {
     ina219: SyncIna219<I2cdev, Option<IntCalibration>>,
 }

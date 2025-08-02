@@ -92,7 +92,7 @@ pub async fn start_power_monitoring_thread(app_state: Arc<Mutex<application_stat
                         break;
                     }
                 }
-                tokio::time::sleep(Duration::from_millis(500)).await;
+                tokio::time::sleep(Duration::from_millis(200)).await;
             }
         }
 
