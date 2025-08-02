@@ -1,4 +1,4 @@
-use crate::sensors::power_monitor::{self, PowerReading};
+use crate::sensors::power_monitor::{PowerReading};
 use crate::state::{ApplicationState};
 
 use serde::{Deserialize, Serialize};
