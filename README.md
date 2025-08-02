@@ -21,6 +21,137 @@ chmod +x setup_dev_env.sh
 ./setup_dev_env.sh
 ```
 
+## Requirements
+
+- Rust (edition 2021 or later)
+- [Axum](https://github.com/tokio-rs/axum)
+- [tokio](https://tokio.rs/)
+- [tracing](https://docs.rs/tracing/)
+- [rppal](https://docs.rs/rppal/) for Raspberry Pi GPIO control
+- [dotenv](https://docs.rs/dotenv/)
+
+## Installation
+
+1. **Clone the repository**
+
+2. **Install configuration files**
+   ```sh
+   sudo mkdir -p /etc/treat-dispenser-api
+   sudo cp config/config.yaml /etc/treat-dispenser-api/
+   sudo cp config/nema14_config.yaml /etc/treat-dispenser-api/
+   ```
+
+3. **Build and install the binary**
+   ```sh
+   cargo build --release
+   sudo cp target/release/treat-dispenser-api /usr/local/bin/
+   ```
+
+## Debian Package (Raspberry Pi, ARM64)
+
+Pre-built `.deb` packages for Raspberry Pi (arm64) are produced by the CI pipeline and can be found in the project releases or CI artifacts (see the `dist/` directory).
+
+### Download and Install
+
+1. **Download the latest `.deb` package**
+   - From the [GitHub Releases](https://github.com/crungo-net/treat-dispenser-api/releases) page, or
+   - From your CI/CD pipeline's `dist/` artifacts
+
+2. **Copy the package to your Raspberry Pi**
+   ```sh
+   scp treat-dispenser-api_*_arm64.deb pi@raspberrypi.local:~
+   # or use wget/curl to download directly on the Pi
+   ```
+
+3. **Install the package**
+   ```sh
+   sudo dpkg -i treat-dispenser-api_*_arm64.deb
+   sudo systemctl restart treat-dispenser-api
+   ```
+
+- The service will start automatically and be enabled on boot.
+- Configuration files are installed to `/etc/treat-dispenser-api/`.
+- Logs are available via `journalctl -u treat-dispenser-api`.
+
+### Upgrading
+
+To upgrade, simply install the new `.deb` package with `dpkg -i` as above. Your configuration files will be preserved unless you remove the package with `--purge`.
+
+## Configuration
+
+The application uses a multi-layered approach to configuration:
+
+1. **Environment Variables**: Basic configuration is loaded from environment variables or a `.env` file (see [Environment Variables](#environment-variables) section).
+
+2. **Application Config**: The `AppConfig` struct centralizes configuration settings:
+   - `api`: API server configuration (listen address)
+   - `nema14`: Optional NEMA-14 specific settings
+   - `motor_cooldown_ms`: Cooldown period after dispensing
+
+Example YAML configuration:
+```yaml
+api:
+  listen_address: 0.0.0.0:3500
+nema14:
+  dir_pin: 23
+  step_pin: 19
+  sleep_pin: 13
+  reset_pin: 6
+  enable_pin: 17
+motor_cooldown_ms: 5000
+```
+
+This configuration structure makes the application more maintainable as it grows, and allows for easier testing with custom configurations.
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DISPENSER_API_TOKEN` | Authentication token for API access | (Required) |
+| `RUST_LOG` | Log level (trace, debug, info, warn, error) | `info` |
+| `MOTOR_TYPE` | Type of motor to use (Stepper28BYJ48, StepperNema14, StepperMock) | `Stepper28BYJ48` |
+
+Example `.env` file:
+```
+DISPENSER_API_TOKEN=your_secret_token
+DISPENSER_API_PORT=3500
+RUST_LOG=info
+MOTOR_TYPE=Stepper28BYJ48
+```
+
+## Justfile Commands
+
+This project uses [`just`](https://github.com/casey/just) as a command runner. Install `just` (if not already installed) and use the following commands for common tasks:
+
+- **Build ARM64 binary:**
+  ```sh
+  just build-arm64-binary
+  ```
+  Builds a release binary for ARM64.
+
+- **Build Debian package:**
+  ```sh
+  just build-deb-package
+  ```
+  Builds the ARM64 binary and then creates a `.deb` package for deployment.
+
+- **Run tests:**
+  ```sh
+  just test
+  ```
+  Runs all tests with output shown.
+
+- **Download latest .deb release:**
+  ```sh
+  just get-latest-deb-release
+  ```
+  Downloads the latest `.deb` package from GitHub releases into the `dist/` directory.
+
+You can view all available commands by running:
+```sh
+just --list
+```
+
 ## Endpoints
 
 ### `GET /`
@@ -65,46 +196,6 @@ curl http://localhost:3500/status
 
 _Response:_ JSON object containing system status information.
 
-## Setup
-
-1. **Clone the repository**
-
-2. **Set environment variables**  
-   Create a `.env` file or set these in your environment (see [Environment Variables](#environment-variables) section for details)
-
-3. **Run the server**
-   ```sh
-   cargo run
-   ```
-
-   The server will listen on `0.0.0.0:3500` by default or the port specified in your environment.
-
-4. **Test the endpoints**  
-   Use `curl` or any HTTP client.
-
-## Logging
-
-- Logs are output to stdout with thread IDs and names included.
-- Log level can be set with the `RUST_LOG` environment variable (default: `info`).
-- Example:  
-  ```sh
-  RUST_LOG=debug cargo run
-  ```
-
-## Docker Support
-
-Build and run the application in a Docker container:
-
-```sh
-# Build the image
-make build
-
-# Run with debug logging
-make run-debug
-
-# Push to registry
-make push
-```
 
 ## Hardware Integration
 
@@ -144,47 +235,14 @@ The motor control logic enforces a configurable cooldown period after each dispe
 
 The motor type can be configured using the `MOTOR_TYPE` environment variable (see [Environment Variables](#environment-variables) section). This allows switching between hardware implementations and the mock implementation for testing.
 
-## Environment Variables
+## Logging
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DISPENSER_API_TOKEN` | Authentication token for API access | (Required) |
-| `RUST_LOG` | Log level (trace, debug, info, warn, error) | `info` |
-| `MOTOR_TYPE` | Type of motor to use (Stepper28BYJ48, StepperNema14, StepperMock) | `Stepper28BYJ48` |
-
-Example `.env` file:
-```
-DISPENSER_API_TOKEN=your_secret_token
-DISPENSER_API_PORT=3500
-RUST_LOG=info
-MOTOR_TYPE=Stepper28BYJ48
-```
-
-## Configuration
-
-The application uses a multi-layered approach to configuration:
-
-1. **Environment Variables**: Basic configuration is loaded from environment variables or a `.env` file (see [Environment Variables](#environment-variables) section).
-
-2. **Application Config**: The `AppConfig` struct centralizes configuration settings:
-   - `api`: API server configuration (listen address)
-   - `nema14`: Optional NEMA-14 specific settings
-   - `motor_cooldown_ms`: Cooldown period after dispensing
-
-Example YAML configuration:
-```yaml
-api:
-  listen_address: 0.0.0.0:3500
-nema14:
-  dir_pin: 23
-  step_pin: 19
-  sleep_pin: 13
-  reset_pin: 6
-  enable_pin: 17
-motor_cooldown_ms: 5000
-```
-
-This configuration structure makes the application more maintainable as it grows, and allows for easier testing with custom configurations.
+- Logs are output to stdout with thread IDs and names included.
+- Log level can be set with the `RUST_LOG` environment variable (default: `info`).
+- Example:  
+  ```sh
+  RUST_LOG=debug cargo run
+  ```
 
 ## Code Structure
 
@@ -215,28 +273,6 @@ This configuration structure makes the application more maintainable as it grows
 
 This structure separates business logic, hardware integration, HTTP interface, and utility functions for clarity and maintainability. Each module has a single responsibility, making the codebase easier to test and extend as new features are added.
 
-## Requirements
-
-- Rust (edition 2021 or later)
-- [Axum](https://github.com/tokio-rs/axum)
-- [tokio](https://tokio.rs/)
-- [tracing](https://docs.rs/tracing/)
-- [rppal](https://docs.rs/rppal/) for Raspberry Pi GPIO control
-- [dotenv](https://docs.rs/dotenv/)
-
-## Continuous Integration (CI)
-
-This project uses a GitLab CI pipeline (see `.gitlab-ci.yml`) to automate building and publishing container images for multiple architectures.
-
-- **Build System:** Uses [moby/buildkit](https://github.com/moby/buildkit) for efficient Docker builds and caching.
-- **Multi-Arch Builds:**
-  - `build-and-push` builds and pushes an x86_64 (amd64) image.
-  - `build-and-push-arm64` builds and pushes an ARM64 image (runs on `main`, `release`, or `arm-test-*` branches).
-- **Image Tags:** Each build pushes images with tags for `latest`, the short commit SHA, and the branch name.
-- **Build Caching:** Build cache is stored in the registry to speed up subsequent builds.
-- **Artifacts:** The built binaries for each architecture are saved as CI artifacts for one week.
-- **Authentication:** Docker credentials are injected for pushing to the private registry (`harbor.crungo.net`).
-
 ## Testing
 
 The project includes both unit tests and integration tests:
@@ -261,58 +297,46 @@ Integration tests verify the full API functionality by starting a test server an
 
 For better test parallelism, tests that require sequential execution (like testing busy states) are grouped together in single test functions.
 
-## Installation
+## Continuous Integration (CI)
 
-### Option 1: Direct Installation
+This project uses a GitLab CI pipeline (see `.gitlab-ci.yml`) to automate testing, building, packaging, and releasing for multiple architectures.
 
-1. **Clone the repository**
+**Key pipeline stages:**
 
-2. **Install configuration files**
-   ```sh
-   sudo mkdir -p /etc/treat-dispenser-api
-   sudo cp config/config.yaml /etc/treat-dispenser-api/
-   sudo cp config/nema14_config.yaml /etc/treat-dispenser-api/
-   ```
+- **Test:**
+  - Runs all tests (`cargo test --all --locked --release`) on every branch push.
 
-3. **Build and install the binary**
-   ```sh
-   cargo build --release
-   sudo cp target/release/treat-dispenser-api /usr/local/bin/
-   ```
+- **Build:**
+  - `build-amd64-binary-and-image`: Builds the x86_64 (amd64) binary and Docker image using BuildKit, pushes images to the private registry (`harbor.crungo.net`), and saves the binary as an artifact.
+  - `build-arm64-binary`: Builds the ARM64 binary (`aarch64-unknown-linux-musl`) and saves it as an artifact.
+  - `build-deb-package`: Creates a `.deb` package for ARM64 using the prebuilt binary and saves it as an artifact.
 
-### Option 2: Docker Installation
+- **Tag:**
+  - `tag-release`: (Manual, on `main` branch) Tags the commit with the version from `Cargo.toml` and pushes the tag to the repository.
 
-Follow the [Docker Support](#docker-support) section instructions to build and run the containerized version.
+- **Fetch:**
+  - `fetch-artifacts-for-tag`: Fetches build artifacts for a release tag using the GitLab CLI, ensuring all necessary files are available for deployment.
 
-## Debian Package (Raspberry Pi, ARM64)
+- **Deploy:**
+  - `release-github`: Publishes the binaries and `.deb` package to GitHub Releases, generating a changelog from commit history.
 
-Pre-built `.deb` packages for Raspberry Pi (arm64) are produced by the CI pipeline and can be found in the project releases or CI artifacts (see the `dist/` directory).
+**Artifacts:**
+- Built binaries (`dist/treat-dispenser-api-amd64`, `dist/treat-dispenser-api-aarch64`) and `.deb` packages are saved as CI artifacts for one week and are used in the release process.
 
-### Download and Install
+**Image Tags:**
+- Docker images are tagged with `latest`, the short commit SHA, and the branch name for traceability.
 
-1. **Download the latest `.deb` package**
-   - From the [GitHub Releases](https://github.com/crungo-net/treat-dispenser-api/releases) page, or
-   - From your CI/CD pipeline's `dist/` artifacts
+**Authentication:**
+- Docker credentials are injected for pushing to the private registry (`harbor.crungo.net`).
+- GitHub and GitLab tokens are used for release automation.
 
-2. **Copy the package to your Raspberry Pi**
-   ```sh
-   scp treat-dispenser-api_*_arm64.deb pi@raspberrypi.local:~
-   # or use wget/curl to download directly on the Pi
-   ```
+**Multi-Arch Support:**
+- Both x86_64 and ARM64 binaries and images are built and published, supporting a wide range of deployment targets (including Raspberry Pi and cloud servers).
 
-3. **Install the package**
-   ```sh
-   sudo dpkg -i treat-dispenser-api_*_arm64.deb
-   sudo systemctl restart treat-dispenser-api
-   ```
+**Debian Packages:**
+- The pipeline produces `.deb` packages for ARM64, suitable for Raspberry Pi and similar devices. These are available as artifacts and in GitHub Releases.
 
-- The service will start automatically and be enabled on boot.
-- Configuration files are installed to `/etc/treat-dispenser-api/`.
-- Logs are available via `journalctl -u treat-dispenser-api`.
-
-### Upgrading
-
-To upgrade, simply install the new `.deb` package with `dpkg -i` as above. Your configuration files will be preserved unless you remove the package with `--purge`.
+See the `.gitlab-ci.yml` file for full details and customization options.
 
 ## License
 

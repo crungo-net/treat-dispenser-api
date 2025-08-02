@@ -5,6 +5,9 @@ use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tracing::{info, debug};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use crate::state::{ApplicationState};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -24,6 +27,7 @@ impl StepperMotor for StepperNema14 {
         steps: u32,
         direction: &Direction,
         step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
     ) -> Result<u32, String> {
         info!("Starting NEMA14 motor with {} steps", steps);
 
@@ -36,6 +40,14 @@ impl StepperMotor for StepperNema14 {
                 return Err("Unsupported step mode for NEMA14".to_string());
             }
         }
+
+        let app_state_clone = Arc::clone(app_state);
+
+        // todo: error handling, don't just unwrap
+        let power_monitor_arc_mutex = {
+            let mut state_guard = app_state_clone.blocking_lock();
+            state_guard.power_monitor.as_mut().unwrap().clone()
+        };
 
         match Gpio::new() {
             Ok(_gpio) => {
@@ -65,10 +77,10 @@ impl StepperMotor for StepperNema14 {
                 // randomize number of steps before toggling direction
                 // we want to toggle direction pin every 110-200 steps (200 is full rotation), helps prevent treats from jamming
                 let mut rng = rand::rng();
-                let dir_toggle_step_range = 110..=200;
-                let mut random_steps = rng.random_range(dir_toggle_step_range.clone());
+                let mut random_steps = rng.random_range(110..=200);
 
-                for _ in 0..steps {
+
+                for step in 0..steps {
                     i += 1;
                     if i % random_steps == 0 {
                         if is_dir_high {
@@ -80,7 +92,7 @@ impl StepperMotor for StepperNema14 {
                         }
                         debug!("Direction pin toggled at step {}", i);
                         i = 0; // Reset the counter after toggling
-                        random_steps = rng.random_range(dir_toggle_step_range.clone());
+                        random_steps = rng.random_range(110..=200);
                     }
 
                     // pulse the step pin to move motor shaft
@@ -88,8 +100,17 @@ impl StepperMotor for StepperNema14 {
                     std::thread::sleep(Duration::from_micros(step_speed_us));
                     step_pin.write(rppal::gpio::Level::Low);
                     std::thread::sleep(Duration::from_micros(step_speed_us));
+
+                    if step % 500 == 0 {
+                        // Log current power consumption every 500 steps
+                        let mut power_monitor = power_monitor_arc_mutex.blocking_lock();
+                        let _power_reading = power_monitor.get_power_reading();
+
+                        // todo: handle power reading, e.g., log it or update state, stop motor if current exceeds threshold
+                    }
                 }
 
+                // Disables the motor after operation
                 enable_pin.write(rppal::gpio::Level::High);
                 Ok(steps)
             }
@@ -104,8 +125,9 @@ impl StepperMotor for StepperNema14 {
         degrees: f32,
         direction: &Direction,
         step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>
     ) -> Result<u32, String> {
-        self.run_motor((degrees / 1.80) as u32, direction, step_mode)
+        self.run_motor((degrees / 1.80) as u32, direction, step_mode, app_state)
     }
 }
 

@@ -2,6 +2,9 @@ use crate::motor::{Direction, StepMode, StepperMotor};
 use rppal::gpio::{Gpio, Level::Low};
 use std::time::Duration;
 use tracing::info;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use crate::state::{ApplicationState};
 
 pub struct Stepper28BYJ48 {}
 
@@ -15,6 +18,7 @@ impl StepperMotor for Stepper28BYJ48 {
         step_count: u32,
         direction: &Direction,
         step_mode: &StepMode,
+        _app_state: &Arc<Mutex<ApplicationState>>,
     ) -> Result<u32, String> {
         let delay_between_steps_ms: u64;
         let mut step_sequence: Vec<[u8; 4]> = match step_mode {

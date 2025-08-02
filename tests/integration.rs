@@ -94,6 +94,9 @@ async fn test_status_endpoint() {
     assert!(status_json.last_error_time.is_none());
     assert_eq!(status_json.version, env!("CARGO_PKG_VERSION"));
     assert_eq!(status_json.motor, "StepperMock");
+    assert_eq!(status_json.motor_voltage_volts, Some(-1.0));
+    assert_eq!(status_json.motor_current_amps, Some(-1.0));
+    assert_eq!(status_json.motor_power_watts, Some(-1.0));
 }
 
 #[tokio::test]

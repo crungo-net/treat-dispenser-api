@@ -1,5 +1,8 @@
 use crate::motor::{Direction, StepMode, StepperMotor};
 use std::time::Duration;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use crate::state::{ApplicationState};
 pub struct StepperMock {}
 
 impl StepperMock {
@@ -14,6 +17,7 @@ impl StepperMotor for StepperMock {
         _steps: u32,
         _direction: &Direction,
         _step_mode: &StepMode,
+        _app_state: &Arc<Mutex<ApplicationState>>,
     ) -> Result<u32, String> {
         std::thread::sleep(Duration::from_millis(3000)); // Simulate motor operation
         Ok(0) // Mock implementation
