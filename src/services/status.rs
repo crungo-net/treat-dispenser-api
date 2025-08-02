@@ -1,15 +1,16 @@
 use crate::sensors::power_monitor::{PowerReading};
-use crate::state::{ApplicationState};
+use crate::application_state::{ApplicationState};
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use tokio::sync::Mutex;
 use tracing::{error};
 
-pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatus {
-    let state_clone = Arc::clone(state);
-    let mut state_guard = state_clone.lock().await;
+pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusResponse {
+    let state_guard = state.lock().await;
+    let mut power_readings_rx = state_guard.power_readings_tx.subscribe();
+
     let now = SystemTime::now();
 
     let gpio_available = state_guard.gpio.is_some();
@@ -37,9 +38,22 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatu
 
     let last_dispensed = state_guard.last_dispense_time.clone();
 
-    let power_reading = try_to_get_power_reading(&mut state_guard).await;
+    // wait for up to 1500ms for a power reading from broadcast channel
+    let power_reading_result = match tokio::time::timeout(Duration::from_millis(1500), power_readings_rx.recv()).await {
+        Ok(reading) => reading,
+        Err(e) => {
+            error!("Failed to receive power reading: {}", e);
+            Ok(
+                PowerReading {
+                bus_voltage_volts: -1.0,
+                current_amps: -1.0,
+                power_watts: -1.0,
+            })
+        }
+    };
+    let power_reading = power_reading_result.unwrap();
 
-    HealthStatus {
+    StatusResponse {
         gpio_available,
         motor_operational: motor_operational,
         treats_available: treats_available,
@@ -56,43 +70,8 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> HealthStatu
     }
 }
 
-async fn try_to_get_power_reading(
-    state_guard: &mut ApplicationState,
-) -> PowerReading {
-    let dummy_reading = PowerReading {
-        bus_voltage_volts: -1.0,
-        current_amps: -1.0,
-        power_watts: -1.0,
-    };
-
-    let power_monitor_opt = &state_guard.power_monitor;
-
-    let power_monitor_arc = match power_monitor_opt {
-        Some(monitor) => monitor,
-        None => {
-            error!("Power monitor is not initialized or available");
-            return dummy_reading;
-        }
-    };
-
-    let power_monitor_lock_result = power_monitor_arc.try_lock();
-    if power_monitor_lock_result.is_err() {
-        error!("Failed to acquire lock on power monitor, returning dummy reading");
-        return dummy_reading;
-    }
-    let mut power_monitor = power_monitor_lock_result.unwrap();
-
-    match power_monitor.get_power_reading() {
-        Ok(reading) => return reading,
-        Err(e) => {
-            error!("Failed to get power reading: {}", e);
-            return dummy_reading;
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug)]
-pub struct HealthStatus {
+pub struct StatusResponse {
     pub gpio_available: bool,
     pub motor_operational: bool,
     pub treats_available: bool,
