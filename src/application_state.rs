@@ -4,6 +4,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
+use tokio::sync::broadcast::Sender;
 use tracing::{error, info};
 
 use crate::AppConfig;
@@ -11,7 +12,7 @@ use crate::motor::StepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
-use crate::sensors::power_monitor;
+use crate::sensors::power_monitor::{self, PowerReading};
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -45,6 +46,7 @@ pub struct ApplicationState {
     pub app_config: AppConfig,
     pub version: String,
     pub power_monitor: Option<Arc<Mutex<power_monitor::PowerMonitor>>>,
+    pub power_readings_tx: Sender<PowerReading>,
 }
 
 impl ApplicationState {
@@ -69,6 +71,7 @@ impl ApplicationState {
             }
         };
 
+        let (power_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
         let mut power_monitor = None;
 
         let gpio = match Gpio::new() {
@@ -102,6 +105,7 @@ impl ApplicationState {
             app_config,
             version,
             power_monitor,
+            power_readings_tx: power_tx,
         }
     }
 }
@@ -124,3 +128,4 @@ fn init_motor(
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }
 }
+

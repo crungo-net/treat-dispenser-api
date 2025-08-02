@@ -7,7 +7,7 @@ use std::time::Duration;
 use tracing::{info, debug};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::state::{ApplicationState};
+use crate::application_state::{ApplicationState};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -103,9 +103,8 @@ impl StepperMotor for StepperNema14 {
 
                     if step % 500 == 0 {
                         // Log current power consumption every 500 steps
-                        let mut power_monitor = power_monitor_arc_mutex.blocking_lock();
-                        let _power_reading = power_monitor.get_power_reading();
-
+                        //let mut power_monitor = power_monitor_arc_mutex.blocking_lock();
+                        //let _power_reading = power_monitor.get_power_reading();
                         // todo: handle power reading, e.g., log it or update state, stop motor if current exceeds threshold
                     }
                 }

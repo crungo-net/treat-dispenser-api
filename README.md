@@ -246,18 +246,19 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 
 ## Code Structure
 
-- `src/main.rs` – Application entry point, sets up routes, logging, and server.
-- `src/lib.rs` – Library exports and app factory (used for tests and integration).
-- `src/state.rs` – System state tracking and health monitoring.
+- `src/main.rs` – Application entry point, sets up routes, logging, server, and power monitoring thread.
+- `src/lib.rs` – Library exports, app factory, and power monitoring thread starter.
+- `src/application_state.rs` – Centralized application state.
 - `src/error.rs` – Error handling and HTTP response mapping.
 - `src/motor/` – Stepper motor trait, real and mock implementations, and motor selection logic.
     - `mod.rs` – Motor trait and module exports
     - `stepper_28byj48.rs` – 28BYJ-48 motor implementation for ULN2003 driver
     - `stepper_nema14.rs` – NEMA-14 motor implementation for A4988 driver
     - `stepper_mock.rs` – Mock motor for testing and fallback
-- `src/services/` – Business logic layer (hardware control, treat dispensing, etc.)
+- `src/services/` – Business logic layer (hardware control, treat dispensing, status, etc.)
     - `mod.rs` – Exports service modules
     - `dispenser.rs` – Treat dispensing logic
+    - `status.rs` – Status and health check logic
 - `src/routes/` – API route handlers (HTTP endpoints)
     - `mod.rs` – Exports route modules
     - `dispense.rs` – Dispense endpoint handler
@@ -265,13 +266,54 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 - `src/middleware/` – API middleware (e.g., authentication)
     - `mod.rs` – Exports middleware modules
     - `auth.rs` – Authentication middleware
+- `src/sensors/` – Sensor integration
+    - `mod.rs` – Exports sensor modules
+    - `power_monitor.rs` – INA219 power/current/voltage monitoring
 - `src/utils/` – Utility functions and helpers
     - `mod.rs` – Exports utility modules
     - `datetime.rs` – Date/time formatting utilities
     - `filesystem.rs` – File system operations and path handling
+    - `gpio.rs` – GPIO helpers
     - `state_helpers.rs` – State manipulation helpers
 
-This structure separates business logic, hardware integration, HTTP interface, and utility functions for clarity and maintainability. Each module has a single responsibility, making the codebase easier to test and extend as new features are added.
+This structure separates business logic, hardware integration, HTTP interface, sensor monitoring, and utility functions for clarity and maintainability. Each module has a single responsibility, making the codebase easier to test and extend as new features are added.
+
+## Power Monitoring (INA219 Support)
+
+The API supports real-time power, voltage, and current monitoring using the INA219 sensor via I2C:
+
+- **INA219 Integration:**
+  - Implemented in `src/sensors/power_monitor.rs`
+  - Uses the [`ina219`](https://crates.io/crates/ina219) crate and `linux-embedded-hal` for I2C communication.
+  - Initializes the sensor on `/dev/i2c-1` (default address `0x40`).
+  - Calibrates for 1A resolution and 0.1Ω shunt resistor (configurable in code).
+  - Provides bus voltage, current, and calculated power readings.
+
+- **API Exposure:**
+  - Power readings are published to the application state and exposed via the `/status` endpoint.
+  - Status response includes:
+    - `motor_voltage_volts`
+    - `motor_current_amps`
+    - `motor_power_watts`
+  - If the sensor is unavailable, dummy values are returned and errors are logged.
+
+- **Threaded Monitoring:**
+  - A background thread periodically samples the INA219 and updates readings (see `start_power_monitoring_thread` in `src/lib.rs`).
+  - Readings are sent via a channel to the status service.
+
+- **Error Handling:**
+  - Initialization and read errors are logged.
+  - Sensor failures do not crash the API; fallback values are used.
+
+**Example INA219 YAML config:**
+```yaml
+power_monitor:
+  i2c_bus: /dev/i2c-1
+  address: 0x40
+  shunt_ohms: 0.1
+  calibration_amps: 1.0
+```
+*(Note: Actual config is currently hardcoded; see `power_monitor.rs` for details.)*
 
 ## Testing
 

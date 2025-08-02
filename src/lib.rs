@@ -3,7 +3,7 @@ pub mod middleware;
 pub mod motor;
 pub mod routes;
 pub mod services;
-pub mod state;
+pub mod application_state;
 pub mod utils;
 pub mod sensors;
 
@@ -15,8 +15,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
-use tracing::{Level, debug, info};
+use tracing::{Level, debug, info, error};
 use tracing_subscriber::EnvFilter;
+use std::time::Duration;
+
+use crate::application_state::ApplicationState;
 
 pub fn configure_logging() {
     tracing_subscriber::fmt()
@@ -34,10 +37,10 @@ pub fn configure_logging() {
 
 /// Builds the Axum application with routes and shared state.
 /// A TraceLayer is added for logging client request details.
-pub fn build_app(app_config: AppConfig) -> axum::Router {
-    let app_state = Arc::new(Mutex::new(state::ApplicationState::new(app_config)));
+pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::Router) {
+    let app_state = Arc::new(Mutex::new(application_state::ApplicationState::new(app_config)));
 
-    Router::new()
+    return (app_state.clone(), Router::new()
         .route("/", get(routes::root))
         .route("/status", get(routes::status::detailed_health))
         .route("/dispense", get(routes::dispense::dispense_treat))
@@ -60,6 +63,40 @@ pub fn build_app(app_config: AppConfig) -> axum::Router {
                 )
             }),
         )
+    );
+}
+
+pub async fn start_power_monitoring_thread(app_state: Arc<Mutex<application_state::ApplicationState>>) {
+    tokio::spawn({
+        let power_monitor = app_state.lock().await.power_monitor.clone();
+        let power_readings_tx = app_state.lock().await.power_readings_tx.clone();
+        async move {
+            info!("Starting power monitoring thread");
+            loop {
+                match &power_monitor {
+                    Some(monitor) => {
+                        let power_reading_result = monitor.lock().await.get_power_reading();
+
+                        match power_reading_result {
+                            Ok(power_reading) => {
+                                // publish the power reading to the channel
+                                let _ = power_readings_tx.send(power_reading);
+                            }
+                            Err(e) => {
+                                error!("Failed to get power reading: {}", e);
+                            }
+                        }
+                    }
+                    None => {
+                        error!("Power monitor is not initialized");
+                        break;
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+        }
+
+    });
 }
 
 pub async fn start_server(app: Router, config: AppConfig) {

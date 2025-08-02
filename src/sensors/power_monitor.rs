@@ -36,10 +36,21 @@ pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>
     Ok(ina219)
 }
 
+#[derive(Clone)]
 pub struct PowerReading {
     pub bus_voltage_volts: f32,
     pub current_amps: f32,
     pub power_watts: f32,
+}
+
+impl PowerReading {
+    pub fn dummy() -> Self {
+        PowerReading {
+            bus_voltage_volts: -1.0,
+            current_amps: -1.0,
+            power_watts: -1.0,
+        }
+    }
 }
 
 pub struct PowerMonitor {
@@ -69,7 +80,7 @@ impl PowerMonitor {
         let bus_voltage = self.get_bus_voltage()?;
         let current = self.get_current_amps()?;
         let power = bus_voltage * current;
-        debug!("Power reading: {} V, {} A, {} W", bus_voltage, current, power);
+        //debug!("Power reading: {} V, {} A, {} W", bus_voltage, current, power);
 
         Ok(PowerReading {
             bus_voltage_volts: bus_voltage,
