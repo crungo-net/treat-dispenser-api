@@ -1,9 +1,9 @@
 use reqwest::Client;
 use std::net::SocketAddr;
+use std::sync::Once;
 use tokio::net::TcpListener;
 use treat_dispenser_api::build_app;
 use treat_dispenser_api::services::status::StatusResponse;
-use std::sync::Once;
 
 async fn setup() -> (SocketAddr, Client) {
     dotenv::from_filename(".env.test").ok();
@@ -13,7 +13,7 @@ async fn setup() -> (SocketAddr, Client) {
     (addr, Client::new())
 }
 
-static INIT : Once = Once::new();
+static INIT: Once = Once::new();
 
 pub fn init_logging() {
     INIT.call_once(|| {
@@ -55,11 +55,7 @@ async fn start_server() -> SocketAddr {
     addr
 }
 
-async fn get_with_auth(
-    client: &Client,
-    addr: SocketAddr,
-    path: &str,
-) -> reqwest::Response {
+async fn get_with_auth(client: &Client, addr: SocketAddr, path: &str) -> reqwest::Response {
     let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
     let url = format!("http://{}{}", addr, path);
     let req = client.get(&url);

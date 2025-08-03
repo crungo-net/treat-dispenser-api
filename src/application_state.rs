@@ -128,4 +128,3 @@ fn init_motor(
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }
 }
-

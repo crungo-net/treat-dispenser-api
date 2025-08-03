@@ -1,10 +1,10 @@
+use crate::application_state::ApplicationState;
 use crate::motor::{Direction, StepMode, StepperMotor};
 use rppal::gpio::{Gpio, Level::Low};
-use std::time::Duration;
-use tracing::info;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
-use crate::application_state::{ApplicationState};
+use tracing::info;
 
 pub struct Stepper28BYJ48 {}
 

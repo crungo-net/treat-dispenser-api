@@ -1,5 +1,5 @@
-use crate::sensors::power_monitor::{PowerReading};
-use crate::application_state::{ApplicationState};
+use crate::application_state::ApplicationState;
+use crate::sensors::power_monitor::PowerReading;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -43,17 +43,18 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
         .as_secs();
 
     // wait for up to 1500ms for a power reading from broadcast channel
-    let power_reading = match tokio::time::timeout(Duration::from_millis(1500), power_readings_rx.recv()).await {
-        Ok(Ok(reading)) => reading,
-        Ok(Err(e)) => {
-            error!("Broadcast receive error: {}", e);
-            PowerReading::dummy()
-        }
-        Err(_) => {
-            warn!("Timed out waiting for power reading");
-            PowerReading::dummy()
-        }
-    };
+    let power_reading =
+        match tokio::time::timeout(Duration::from_millis(1500), power_readings_rx.recv()).await {
+            Ok(Ok(reading)) => reading,
+            Ok(Err(e)) => {
+                error!("Broadcast receive error: {}", e);
+                PowerReading::dummy()
+            }
+            Err(_) => {
+                warn!("Timed out waiting for power reading");
+                PowerReading::dummy()
+            }
+        };
 
     StatusResponse {
         gpio_available,
@@ -71,7 +72,6 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
         motor_power_watts: Some(power_reading.power_watts),
     }
 }
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StatusResponse {

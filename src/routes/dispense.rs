@@ -1,6 +1,6 @@
+use crate::application_state;
 use crate::error::ApiError;
 use crate::services::dispenser;
-use crate::application_state;
 use crate::utils::state_helpers;
 use axum::extract::State;
 use std::sync::Arc;

@@ -1,7 +1,7 @@
+use crate::application_state::ApplicationState;
 use core::fmt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::application_state::ApplicationState;
 
 pub mod stepper_28byj48;
 pub mod stepper_mock;

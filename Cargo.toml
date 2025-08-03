@@ -28,7 +28,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
 dotenv = "0.15"
 tracing = "0.1"
 tracing-subscriber = {version = "0.3", features = ["env-filter"]}
-tower-http = { version = "0.6", features = ["trace", "cors"]}
+tower-http = { version = "0.6.6", features = ["trace", "cors"]}
 rppal = "0.22.1"
 sysinfo = "0.35.2"
 serde = { version = "1.0", features = ["derive"] }
