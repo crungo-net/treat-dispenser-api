@@ -3,12 +3,28 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use treat_dispenser_api::build_app;
 use treat_dispenser_api::services::status::StatusResponse;
+use std::sync::Once;
 
 async fn setup() -> (SocketAddr, Client) {
     dotenv::from_filename(".env.test").ok();
     let addr = start_server().await;
     wait_for_server(100).await;
+    init_logging();
     (addr, Client::new())
+}
+
+static INIT : Once = Once::new();
+
+pub fn init_logging() {
+    INIT.call_once(|| {
+        // Initialize logging
+        tracing_subscriber::fmt()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .with_ansi(true)
+            .with_thread_ids(true)
+            .with_thread_names(true)
+            .init();
+    });
 }
 
 async fn wait_for_server(millis: u64) {

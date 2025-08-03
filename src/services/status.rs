@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::Mutex;
-use tracing::{error};
+use tracing::{error, warn};
 
 pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusResponse {
     let now = SystemTime::now();
@@ -50,7 +50,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
             PowerReading::dummy()
         }
         Err(_) => {
-            error!("Timed out waiting for power reading");
+            warn!("Timed out waiting for power reading");
             PowerReading::dummy()
         }
     };
