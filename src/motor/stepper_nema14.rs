@@ -1,13 +1,13 @@
 use crate::motor::{Direction, StepMode, StepperMotor};
 
+use crate::application_state::ApplicationState;
 use rand::Rng;
 use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
-use tracing::{info, debug};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
-use crate::application_state::{ApplicationState};
+use tracing::{debug, info};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -41,14 +41,6 @@ impl StepperMotor for StepperNema14 {
             }
         }
 
-        let app_state_clone = Arc::clone(app_state);
-
-        // todo: error handling, don't just unwrap
-        let power_monitor_arc_mutex = {
-            let mut state_guard = app_state_clone.blocking_lock();
-            state_guard.power_monitor.as_mut().unwrap().clone()
-        };
-
         match Gpio::new() {
             Ok(_gpio) => {
                 let mut step_pin = self.get_output_pin(self.config.step_pin)?;
@@ -78,7 +70,6 @@ impl StepperMotor for StepperNema14 {
                 // we want to toggle direction pin every 110-200 steps (200 is full rotation), helps prevent treats from jamming
                 let mut rng = rand::rng();
                 let mut random_steps = rng.random_range(110..=200);
-
 
                 for step in 0..steps {
                     i += 1;
@@ -124,7 +115,7 @@ impl StepperMotor for StepperNema14 {
         degrees: f32,
         direction: &Direction,
         step_mode: &StepMode,
-        app_state: &Arc<Mutex<ApplicationState>>
+        app_state: &Arc<Mutex<ApplicationState>>,
     ) -> Result<u32, String> {
         self.run_motor((degrees / 1.80) as u32, direction, step_mode, app_state)
     }

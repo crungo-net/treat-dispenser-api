@@ -1,7 +1,7 @@
-use crate::error::ApiError;
-use crate::motor::{Direction, StepMode, StepperMotor};
 use crate::application_state::AppStateMutex;
 use crate::application_state::DispenserStatus;
+use crate::error::ApiError;
+use crate::motor::{Direction, StepMode, StepperMotor};
 use crate::utils::{datetime, state_helpers::set_dispenser_status};
 use std::sync::Arc;
 use std::time::Duration;

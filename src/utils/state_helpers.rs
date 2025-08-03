@@ -16,7 +16,10 @@ pub async fn record_error<E: Display>(hw_state: &Arc<Mutex<ApplicationState>>, e
 }
 
 /// Acquires a lock on the DispenserState and sets the dispenser status synchronously.
-pub fn set_dispenser_status(state: &Arc<Mutex<ApplicationState>>, status: application_state::DispenserStatus) {
+pub fn set_dispenser_status(
+    state: &Arc<Mutex<ApplicationState>>,
+    status: application_state::DispenserStatus,
+) {
     let mut state_guard = state.blocking_lock();
     debug!("Lock acquired on DispenserState");
 

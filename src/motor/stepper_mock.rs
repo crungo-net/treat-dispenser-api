@@ -1,8 +1,8 @@
+use crate::application_state::ApplicationState;
 use crate::motor::{Direction, StepMode, StepperMotor};
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
-use crate::application_state::{ApplicationState};
 pub struct StepperMock {}
 
 impl StepperMock {

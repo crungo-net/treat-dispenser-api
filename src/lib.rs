@@ -1,25 +1,27 @@
+pub mod application_state;
 pub mod error;
 pub mod middleware;
 pub mod motor;
 pub mod routes;
-pub mod services;
-pub mod application_state;
-pub mod utils;
 pub mod sensors;
+pub mod services;
+pub mod utils;
 
 use axum::extract::ConnectInfo;
-use axum::http::Request;
+use axum::http::{Method, Request, StatusCode};
 use axum::{Router, routing::get};
 use serde_yaml;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use tower_http::trace::TraceLayer;
-use tracing::{Level, debug, info, error};
-use tracing_subscriber::EnvFilter;
 use std::time::Duration;
+use tokio::sync::Mutex;
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::{DefaultOnFailure, TraceLayer};
+use tracing::{Level, debug, error, info, warn};
+use tracing_subscriber::EnvFilter;
 
 use crate::application_state::ApplicationState;
+use crate::middleware::auth::create_auth_middleware;
 
 pub fn configure_logging() {
     tracing_subscriber::fmt()
@@ -38,35 +40,62 @@ pub fn configure_logging() {
 /// Builds the Axum application with routes and shared state.
 /// A TraceLayer is added for logging client request details.
 pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::Router) {
-    let app_state = Arc::new(Mutex::new(application_state::ApplicationState::new(app_config)));
+    let app_state = Arc::new(Mutex::new(application_state::ApplicationState::new(
+        app_config,
+    )));
 
-    return (app_state.clone(), Router::new()
+    let cors = CorsLayer::new()
+        .allow_origin(Any) // Allow all origins for simplicity, adjust as needed
+        .allow_methods(vec![
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers(Any);
+
+    let auth_middleware = create_auth_middleware();
+
+    let public_routes = Router::new()
         .route("/", get(routes::root))
-        .route("/status", get(routes::status::detailed_health))
-        .route("/dispense", get(routes::dispense::dispense_treat))
-        .with_state(app_state)
-        .layer(
-            TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
-                let request_ip_addr = request
-                    .extensions()
-                    .get::<ConnectInfo<SocketAddr>>()
-                    .map(|ConnectInfo(addr)| addr.to_string())
-                    .unwrap_or_else(|| "unknown".to_string());
+        .route("/status", get(routes::status::detailed_health));
 
-                // '%' is tracing syntax used to format the span name
-                tracing::span!(
-                    Level::INFO,
-                    "request",
-                    method = %request.method(),
-                    uri = %request.uri(),
-                    client_ip = %request_ip_addr,
-                )
-            }),
-        )
+    let protected_routes = Router::new()
+        .route("/dispense", get(routes::dispense::dispense_treat))
+        .layer(axum::middleware::from_fn(auth_middleware));
+
+    let merged_routes = public_routes.merge(protected_routes);
+
+    return (
+        app_state.clone(),
+        merged_routes.with_state(app_state).layer(cors).layer(
+            TraceLayer::new_for_http()
+                .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)) // log http failures at WARN level
+                .make_span_with(|request: &Request<_>| {
+                    let request_ip_addr = request
+                        .extensions()
+                        .get::<ConnectInfo<SocketAddr>>()
+                        .map(|ConnectInfo(addr)| addr.to_string())
+                        .unwrap_or_else(|| "unknown".to_string());
+
+                    // '%' is tracing syntax used to format the span name
+                    tracing::span!(
+                        Level::INFO,
+                        "request",
+                        method = %request.method(),
+                        uri = %request.uri(),
+                        client_ip = %request_ip_addr,
+                    )
+                })
+                .on_response(log_http_response_code),
+        ),
     );
 }
 
-pub async fn start_power_monitoring_thread(app_state: Arc<Mutex<application_state::ApplicationState>>) {
+pub async fn start_power_monitoring_thread(
+    app_state: Arc<Mutex<application_state::ApplicationState>>,
+) {
     tokio::spawn({
         let power_monitor = app_state.lock().await.power_monitor.clone();
         let power_readings_tx = app_state.lock().await.power_readings_tx.clone();
@@ -95,7 +124,6 @@ pub async fn start_power_monitoring_thread(app_state: Arc<Mutex<application_stat
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }
         }
-
     });
 }
 
@@ -121,6 +149,29 @@ pub async fn start_server(app: Router, config: AppConfig) {
     .with_graceful_shutdown(shutdown_handler)
     .await
     .expect("Failed to start server");
+}
+
+// This function is called by the TraceLayer to log the response status code
+// It overrides the default behaviour such that we can log specific status codes differently
+fn log_http_response_code<B>(
+    response: &axum::http::Response<B>,
+    _latency: Duration,
+    _span: &tracing::Span,
+) {
+    match response.status() {
+        StatusCode::UNAUTHORIZED
+        | StatusCode::FORBIDDEN
+        | StatusCode::NOT_FOUND
+        | StatusCode::TOO_MANY_REQUESTS => {
+            warn!("response finished: {}", response.status())
+        }
+        StatusCode::INTERNAL_SERVER_ERROR => {
+            error!("response finished: {}", response.status())
+        }
+        _ => {
+            debug!("response finished: {}", response.status())
+        }
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]

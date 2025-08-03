@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use std::fmt;
-use tracing::error;
+use tracing::warn;
 
 #[derive(Debug)]
 pub enum ApiError {
@@ -30,7 +30,7 @@ impl fmt::Display for ApiError {
 // tells axum how to convert ApiError into an HTTP response
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        error!("{}", self);
+        warn!("{}", self);
         let (status, body) = match self {
             ApiError::Unauthorized => {
                 (StatusCode::UNAUTHORIZED, "Unauthorized request".to_string())
