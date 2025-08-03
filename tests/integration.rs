@@ -43,20 +43,16 @@ async fn get_with_auth(
     client: &Client,
     addr: SocketAddr,
     path: &str,
-    token: Option<&str>,
 ) -> reqwest::Response {
+    let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
     let url = format!("http://{}{}", addr, path);
     let req = client.get(&url);
-    let req = if let Some(token) = token {
-        req.header("Authorization", format!("Bearer {}", token))
-    } else {
-        req
-    };
+    let req = req.header("Authorization", format!("Bearer {}", token));
     req.send().await.unwrap()
 }
 
 async fn get_hardware_status(client: &Client, addr: SocketAddr) -> StatusResponse {
-    let response = get_with_auth(client, addr, "/status", None).await;
+    let response = get_with_auth(client, addr, "/status").await;
     assert!(
         response.status().is_success(),
         "Expected success, got: {}",
@@ -68,7 +64,7 @@ async fn get_hardware_status(client: &Client, addr: SocketAddr) -> StatusRespons
 #[tokio::test]
 async fn test_root_endpoint() {
     let (addr, client) = setup().await;
-    let response = get_with_auth(&client, addr, "/", None).await;
+    let response = get_with_auth(&client, addr, "/").await;
     assert!(response.status().is_success());
 }
 
@@ -77,7 +73,7 @@ async fn test_status_endpoint() {
     let (addr, client) = setup().await;
     wait_for_server(5000).await; // Wait for server to be ready
 
-    let response = get_with_auth(&client, addr, "/status", None).await;
+    let response = get_with_auth(&client, addr, "/status").await;
     assert!(response.status().is_success());
 
     let status_json = response.json::<StatusResponse>().await.unwrap();
@@ -102,15 +98,15 @@ async fn test_status_endpoint() {
 #[tokio::test]
 async fn test_dispense_endpoint_unauthorized() {
     let (addr, client) = setup().await;
-    let response = get_with_auth(&client, addr, "/dispense", None).await;
+    let req = client.get(format!("http://{}/dispense", addr));
+    let response = req.send().await.unwrap();
     assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
 async fn test_dispense_endpoint_authorized() {
     let (addr, client) = setup().await;
-    let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
-    let response = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
+    let response = get_with_auth(&client, addr, "/dispense").await;
 
     let health_status = get_hardware_status(&client, addr).await;
 
@@ -128,9 +124,8 @@ async fn test_dispense_endpoint_authorized() {
 #[tokio::test]
 async fn test_dispense_endpoint_busy_response() {
     let (addr, client) = setup().await;
-    let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
-    let _ = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
-    let response = get_with_auth(&client, addr, "/dispense", Some(&token)).await;
+    let _ = get_with_auth(&client, addr, "/dispense").await;
+    let response = get_with_auth(&client, addr, "/dispense").await;
 
     let hardware_status = get_hardware_status(&client, addr).await;
 

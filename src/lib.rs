@@ -8,18 +8,20 @@ pub mod utils;
 pub mod sensors;
 
 use axum::extract::ConnectInfo;
-use axum::http::Request;
+use axum::http::{Request, Method};
 use axum::{Router, routing::get};
 use serde_yaml;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_http::trace::TraceLayer;
+use tower_http::cors::{CorsLayer, Any};
 use tracing::{Level, debug, info, error};
 use tracing_subscriber::EnvFilter;
 use std::time::Duration;
 
 use crate::application_state::ApplicationState;
+use crate::middleware::auth::create_auth_middleware;
 
 pub fn configure_logging() {
     tracing_subscriber::fmt()
@@ -40,11 +42,20 @@ pub fn configure_logging() {
 pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::Router) {
     let app_state = Arc::new(Mutex::new(application_state::ApplicationState::new(app_config)));
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any) // Allow all origins for simplicity, adjust as needed
+        .allow_methods(vec![Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+        .allow_headers(Any);
+
+    let auth_middleware = create_auth_middleware();
+
     return (app_state.clone(), Router::new()
         .route("/", get(routes::root))
         .route("/status", get(routes::status::detailed_health))
         .route("/dispense", get(routes::dispense::dispense_treat))
         .with_state(app_state)
+        .layer(cors)
+        .layer(axum::middleware::from_fn(auth_middleware))
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
                 let request_ip_addr = request

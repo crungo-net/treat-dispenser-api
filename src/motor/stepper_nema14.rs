@@ -41,13 +41,6 @@ impl StepperMotor for StepperNema14 {
             }
         }
 
-        let app_state_clone = Arc::clone(app_state);
-
-        // todo: error handling, don't just unwrap
-        let power_monitor_arc_mutex = {
-            let mut state_guard = app_state_clone.blocking_lock();
-            state_guard.power_monitor.as_mut().unwrap().clone()
-        };
 
         match Gpio::new() {
             Ok(_gpio) => {
