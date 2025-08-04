@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::{DefaultOnFailure, TraceLayer};
-use tracing::{Level, debug, error, info, warn};
+use tracing::{Level, trace, debug, error, info, warn};
 use tracing_subscriber::EnvFilter;
 
 use crate::application_state::ApplicationState;
@@ -169,7 +169,7 @@ fn log_http_response_code<B>(
             error!("response finished: {}", response.status())
         }
         _ => {
-            debug!("response finished: {}", response.status())
+            trace!("response finished: {}", response.status())
         }
     }
 }

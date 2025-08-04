@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -40,6 +40,8 @@ impl StepperMotor for StepperNema14 {
                 return Err("Unsupported step mode for NEMA14".to_string());
             }
         }
+
+        let mut power_readings_rx = app_state.blocking_lock().power_readings_tx.subscribe();
 
         match Gpio::new() {
             Ok(_gpio) => {
@@ -93,6 +95,17 @@ impl StepperMotor for StepperNema14 {
                     std::thread::sleep(Duration::from_micros(step_speed_us));
 
                     if step % 500 == 0 {
+                        let power_reading_result = power_readings_rx
+                            .blocking_recv();
+
+                        match power_reading_result {
+                            Ok(power_reading) => {
+                                info!("Power reading: {:?}", power_reading);
+                            }
+                            Err(e) => {
+                                error!("Failed to receive power reading: {}", e);
+                            }
+                        }
                         // Log current power consumption every 500 steps
                         //let mut power_monitor = power_monitor_arc_mutex.blocking_lock();
                         //let _power_reading = power_monitor.get_power_reading();
