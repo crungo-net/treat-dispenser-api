@@ -1,5 +1,5 @@
 use crate::application_state::ApplicationState;
-use crate::motor::{Direction, StepMode, StepperMotor};
+use crate::motor::{AsyncStepperMotor, Direction, StepMode, StepperMotor};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
@@ -8,6 +8,21 @@ pub struct StepperMock {}
 impl StepperMock {
     pub fn new() -> Self {
         StepperMock {}
+    }
+}
+
+#[async_trait::async_trait]
+impl AsyncStepperMotor for StepperMock {
+    async fn run_motor_degrees_async(
+        &self,
+        _degrees: f32,
+        _direction: &Direction,
+        _step_mode: &StepMode,
+        _app_state: &Arc<Mutex<ApplicationState>>,
+    ) -> Result<u32, String> {
+        // Simulate motor operation
+        tokio::time::sleep(Duration::from_millis(3000)).await;
+        Ok(0) // Mock implementation
     }
 }
 

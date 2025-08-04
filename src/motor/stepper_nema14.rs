@@ -1,4 +1,4 @@
-use crate::motor::{Direction, StepMode, StepperMotor};
+use crate::motor::{AsyncStepperMotor, Direction, StepMode, StepperMotor};
 
 use crate::application_state::ApplicationState;
 use rand::rngs::StdRng;
@@ -136,6 +136,107 @@ impl StepperMotor for StepperNema14 {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+}
+
+#[async_trait::async_trait]
+impl AsyncStepperMotor for StepperNema14 {
+    async fn run_motor_degrees_async(
+        &self,
+        degrees: f32,
+        direction: &Direction,
+        step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
+    ) -> Result<u32, String> {
+        let steps = (degrees / 1.80) as u32;
+        info!("Starting NEMA14 motor with {} steps [ASYNC]", steps);
+
+        match step_mode {
+            StepMode::Full => {
+                // NEMA14 typically supports full and half step modes
+                info!("Using {} step mode", step_mode);
+            }
+            _ => {
+                return Err("Unsupported step mode for NEMA14".to_string());
+            }
+        }
+
+        let mut power_readings_rx = app_state.lock().await.power_readings_tx.subscribe();
+
+        match Gpio::new() {
+            Ok(_gpio) => {
+                let mut step_pin = self.get_output_pin(self.config.step_pin)?;
+                let mut dir_pin = self.get_output_pin(self.config.dir_pin)?;
+                let mut sleep_pin = self.get_output_pin(self.config.sleep_pin)?;
+                let mut reset_pin = self.get_output_pin(self.config.reset_pin)?;
+                let mut enable_pin = self.get_output_pin(self.config.enable_pin)?;
+
+                sleep_pin.write(rppal::gpio::Level::High);
+                reset_pin.write(rppal::gpio::Level::High);
+                enable_pin.write(rppal::gpio::Level::Low); // Enable the motor
+
+                match direction {
+                    Direction::Clockwise => dir_pin.write(rppal::gpio::Level::High),
+                    Direction::CounterClockwise => dir_pin.write(rppal::gpio::Level::Low),
+                }
+
+                let step_speed_us = self.config.step_speed_us.or(Some(1000)).unwrap();
+
+                let mut i = 0;
+                let mut is_dir_high = match direction {
+                    Direction::Clockwise => true,
+                    Direction::CounterClockwise => false,
+                };
+
+                // randomize number of steps before toggling direction
+                // we want to toggle direction pin every 110-200 steps (200 is full rotation), helps prevent treats from jamming
+                let mut rng = StdRng::from_os_rng();
+                let mut random_steps = rng.random_range(110..=200);
+
+                for step in 0..steps {
+                    i += 1;
+                    if i % random_steps == 0 {
+                        if is_dir_high {
+                            dir_pin.write(rppal::gpio::Level::Low);
+                            is_dir_high = false;
+                        } else {
+                            dir_pin.write(rppal::gpio::Level::High);
+                            is_dir_high = true;
+                        }
+                        debug!("Direction pin toggled at step {}", i);
+                        i = 0; // Reset the counter after toggling
+                        random_steps = rng.random_range(110..=200);
+                    }
+
+                    // pulse the step pin to move motor shaft
+                    step_pin.write(rppal::gpio::Level::High);
+                    tokio::time::sleep(Duration::from_micros(step_speed_us)).await;
+                    step_pin.write(rppal::gpio::Level::Low);
+                    tokio::time::sleep(Duration::from_micros(step_speed_us)).await;
+
+                    if step % 500 == 0 {
+                        
+                        let power_reading_result = power_readings_rx.recv().await;
+
+                        match power_reading_result {
+                            Ok(power_reading) => {
+                                info!("Power reading: {:?}", power_reading);
+                            }
+                            Err(e) => {
+                                error!("Failed to receive power reading: {}", e);
+                            }
+                        }
+                    }
+                }
+
+                // Disables the motor after operation
+                enable_pin.write(rppal::gpio::Level::High);
+                Ok(steps)
+            }
+            Err(e) => {
+                return Err(format!("Failed to initialize GPIO: {}", e));
+            }
+        }
     }
 }
 

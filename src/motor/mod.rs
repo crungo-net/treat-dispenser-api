@@ -2,6 +2,7 @@ use crate::application_state::ApplicationState;
 use core::fmt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use async_trait::async_trait;
 
 pub mod stepper_28byj48;
 pub mod stepper_mock;
@@ -30,6 +31,20 @@ impl fmt::Display for StepMode {
 pub enum Direction {
     Clockwise,
     CounterClockwise,
+}
+
+#[async_trait]
+pub trait AsyncStepperMotor: Send + Sync + StepperMotor {
+    /// Runs the motor for a specified number of degrees in a given direction and step mode.
+    /// The number of steps is calculated based on the step mode and the degrees.
+    /// Returns the last step index reached after running the motor.
+    async fn run_motor_degrees_async(
+        &self,
+        degrees: f32,
+        direction: &Direction,
+        step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
+    ) -> Result<u32, String>;
 }
 
 pub trait StepperMotor: std::any::Any {

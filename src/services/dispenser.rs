@@ -1,7 +1,7 @@
 use crate::application_state::AppStateMutex;
 use crate::application_state::DispenserStatus;
 use crate::error::ApiError;
-use crate::motor::{Direction, StepMode, StepperMotor, stepper_nema14::StepperNema14};
+use crate::motor::{Direction, StepMode, StepperMotor, AsyncStepperMotor, stepper_nema14::StepperNema14};
 use crate::utils::state_helpers::set_dispenser_status_async;
 use crate::utils::{datetime, state_helpers::set_dispenser_status};
 use std::sync::Arc;
@@ -14,7 +14,7 @@ use tracing::{debug, error, info};
 /// does not affect API responsiveness.
 /// After dispensing, it updates the state to "Operational" and records the last dispense time.
 pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
-    let motor: Arc<Box<dyn StepperMotor + Send + Sync>>;
+    let motor: Arc<Box<dyn AsyncStepperMotor + Send + Sync>>;
 
     // query status before starting the process, done atomically to avoid race conditions
     {
@@ -47,87 +47,27 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
     info!("Dispensing treatos...");
     let app_state_clone = Arc::clone(&app_state);
 
-    // Check if the motor is a StepperNema14 without storing the reference
-    // If it is, we can use the async run_motor_degrees method for dispensing
-    let is_nema14 = motor
-        .as_any()
-        .downcast_ref::<StepperNema14>()
-        .is_some();
-
-    if is_nema14 {
-        tokio::spawn(async move {
-            info!("Using StepperNema14 motor for dispensing");
-            let motor = Arc::clone(&motor);
-            let nema14 = motor.as_any().downcast_ref::<StepperNema14>().unwrap();
-
-            let step_mode = StepMode::Full;
-            let dir = Direction::CounterClockwise;
-            let nema14_async_run_result = nema14
-                .run_motor_degrees_async(2160.0, &dir, &step_mode, &app_state_clone)
-                .await;
-
-            if nema14_async_run_result.is_err() {
-                error!("Failed to run motor: {:?}", nema14_async_run_result.err());
-                set_error_status(&app_state_clone).await;
-            } else {
-                // enforce a cooldown period after operation
-                set_dispenser_status_async(&app_state_clone, DispenserStatus::Cooldown).await;
-                let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms;
-                tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
-
-                let mut state_guard = app_state_clone.lock().await;
-                state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
-                state_guard.status = DispenserStatus::Operational;
-                state_guard.last_step_index = Some(nema14_async_run_result.unwrap());
-                info!("Treatos dispensed successfully!");
-            }
-        });
-        info!("Dispensing process started in the background.");
-        return Ok(()); // Return early, the dispensing is handled in the background task
-    }
-
-    // If the motor is not a StepperNema14, we assume it implements the StepperMotor trait
-    // and use the synchronous run_motor_degrees method
-    // Spawn a task that manages the blocking work
     tokio::spawn(async move {
-        // Handle the blocking motor control in a separate thread
-        let motor_task_result = tokio::task::spawn_blocking(move || {
-            let step_mode = StepMode::Full;
-            let dir = Direction::CounterClockwise;
-            let result = motor.run_motor_degrees(2160.0, &dir, &step_mode, &app_state_clone);
+        let step_mode = StepMode::Full;
+        let dir = Direction::CounterClockwise;
+        let async_motor_run_result = motor
+            .run_motor_degrees_async(2160.0, &dir, &step_mode, &app_state_clone)
+            .await;
 
+        if async_motor_run_result.is_err() {
+            error!("Failed to run motor: {:?}", async_motor_run_result.err());
+            set_error_status(&app_state_clone).await;
+        } else {
             // enforce a cooldown period after operation
-            set_dispenser_status(&app_state_clone, DispenserStatus::Cooldown);
-            let cooldown_ms = app_state_clone.blocking_lock().app_config.motor_cooldown_ms;
-            std::thread::sleep(Duration::from_millis(cooldown_ms));
+            set_dispenser_status_async(&app_state_clone, DispenserStatus::Cooldown).await;
+            let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms;
+            tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
 
-            result
-        })
-        .await;
-
-        // Handle the result back in the async context
-        match motor_task_result {
-            Ok(Ok(last_step_index)) => {
-                info!("Treatos dispensed successfully!");
-                debug!("Last step index reached: {}", last_step_index);
-
-                let mut state_guard = app_state.lock().await;
-                state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
-                state_guard.status = DispenserStatus::Operational;
-                state_guard.last_step_index = Some(last_step_index);
-                debug!(
-                    "Dispenser state updated: last_dispense_time={:?}, status={:?}, last_step_index={:?}",
-                    state_guard.last_dispense_time, state_guard.status, state_guard.last_step_index
-                );
-            }
-            Ok(Err(e)) => {
-                error!("Motor control error: {}", e);
-                set_error_status(&app_state).await;
-            }
-            Err(e) => {
-                error!("Task execution error: {}", e);
-                set_error_status(&app_state).await;
-            }
+            let mut state_guard = app_state_clone.lock().await;
+            state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
+            state_guard.status = DispenserStatus::Operational;
+            state_guard.last_step_index = Some(async_motor_run_result.unwrap());
+            info!("Treatos dispensed successfully!");
         }
     });
 

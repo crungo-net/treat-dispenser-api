@@ -1,5 +1,5 @@
 use crate::application_state::ApplicationState;
-use crate::motor::{Direction, StepMode, StepperMotor};
+use crate::motor::{AsyncStepperMotor, Direction, StepMode, StepperMotor};
 use rppal::gpio::{Gpio, Level::Low};
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,6 +7,19 @@ use tokio::sync::Mutex;
 use tracing::info;
 
 pub struct Stepper28BYJ48 {}
+
+#[async_trait::async_trait]
+impl AsyncStepperMotor for Stepper28BYJ48 {
+    async fn run_motor_degrees_async(
+        &self,
+        degrees: f32,
+        direction: &Direction,
+        step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
+    ) -> Result<u32, String> {
+        self.run_motor_degrees(degrees, direction, step_mode, app_state)
+    }
+}
 
 impl StepperMotor for Stepper28BYJ48 {
     fn get_name(&self) -> String {
