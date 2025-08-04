@@ -49,33 +49,37 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
 
     // Check if the motor is a StepperNema14 without storing the reference
     // If it is, we can use the async run_motor_degrees method for dispensing
-    if motor.as_any().downcast_ref::<StepperNema14>().is_some() {
-        info!("Using StepperNema14 motor for dispensing");
-        let motor = Arc::clone(&motor);
+    let is_nema14 = motor
+        .as_any()
+        .downcast_ref::<StepperNema14>()
+        .is_some();
+
+    if is_nema14 {
         tokio::spawn(async move {
-            // Do the downcast inside the async block where motor_clone is moved
-            if let Some(stepper_nema14) = motor.as_any().downcast_ref::<StepperNema14>() {
-                let step_mode = StepMode::Full;
-                let dir = Direction::CounterClockwise;
-                let nema14_async_run_result = stepper_nema14
-                    .run_motor_degrees_async(2160.0, &dir, &step_mode, &app_state_clone)
-                    .await;
+            info!("Using StepperNema14 motor for dispensing");
+            let motor = Arc::clone(&motor);
+            let nema14 = motor.as_any().downcast_ref::<StepperNema14>().unwrap();
 
-                if nema14_async_run_result.is_err() {
-                    error!("Failed to run motor: {:?}", nema14_async_run_result.err());
-                    set_error_status(&app_state_clone).await;
-                } else {
-                    // enforce a cooldown period after operation
-                    set_dispenser_status_async(&app_state_clone, DispenserStatus::Cooldown).await;
-                    let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms;
-                    tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
+            let step_mode = StepMode::Full;
+            let dir = Direction::CounterClockwise;
+            let nema14_async_run_result = nema14
+                .run_motor_degrees_async(2160.0, &dir, &step_mode, &app_state_clone)
+                .await;
 
-                    let mut state_guard = app_state_clone.lock().await;
-                    state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
-                    state_guard.status = DispenserStatus::Operational;
-                    state_guard.last_step_index = Some(nema14_async_run_result.unwrap());
-                    info!("Treatos dispensed successfully!");
-                }
+            if nema14_async_run_result.is_err() {
+                error!("Failed to run motor: {:?}", nema14_async_run_result.err());
+                set_error_status(&app_state_clone).await;
+            } else {
+                // enforce a cooldown period after operation
+                set_dispenser_status_async(&app_state_clone, DispenserStatus::Cooldown).await;
+                let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms;
+                tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
+
+                let mut state_guard = app_state_clone.lock().await;
+                state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
+                state_guard.status = DispenserStatus::Operational;
+                state_guard.last_step_index = Some(nema14_async_run_result.unwrap());
+                info!("Treatos dispensed successfully!");
             }
         });
         info!("Dispensing process started in the background.");
