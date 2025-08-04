@@ -104,6 +104,10 @@ impl StepperMotor for Stepper28BYJ48 {
             StepMode::Sixteenth => 32768,
         }
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 impl Stepper28BYJ48 {

@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::{DefaultOnFailure, TraceLayer};
-use tracing::{Level, trace, debug, error, info, warn};
+use tracing::{Level, debug, error, info, trace, warn};
 use tracing_subscriber::EnvFilter;
 
 use crate::application_state::ApplicationState;

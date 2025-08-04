@@ -34,4 +34,8 @@ impl StepperMotor for StepperMock {
     fn requires_gpio(&self) -> bool {
         false
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

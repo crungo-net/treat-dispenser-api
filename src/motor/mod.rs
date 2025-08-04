@@ -32,7 +32,7 @@ pub enum Direction {
     CounterClockwise,
 }
 
-pub trait StepperMotor {
+pub trait StepperMotor: std::any::Any {
     fn run_motor(
         &self,
         steps: u32,
@@ -63,4 +63,6 @@ pub trait StepperMotor {
     fn requires_gpio(&self) -> bool {
         true
     }
+
+    fn as_any(&self) -> &dyn std::any::Any;
 }
