@@ -1,8 +1,8 @@
 use crate::application_state::ApplicationState;
+use async_trait::async_trait;
 use core::fmt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use async_trait::async_trait;
 use tokio_util::sync::CancellationToken;
 
 pub mod stepper_28byj48;

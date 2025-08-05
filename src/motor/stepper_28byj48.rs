@@ -4,8 +4,8 @@ use rppal::gpio::{Gpio, Level::Low};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::info;
 use tokio_util::sync::CancellationToken;
+use tracing::info;
 
 pub struct Stepper28BYJ48 {}
 

@@ -175,13 +175,24 @@ async fn test_cancel_dispense_endpoint() {
     let (addr, client) = setup().await;
     let response = post_with_auth(&client, addr, "/dispense").await;
 
-    assert!(response.status().is_success(), "Expected success, got: {}", response.status());
+    assert!(
+        response.status().is_success(),
+        "Expected success, got: {}",
+        response.status()
+    );
 
     // Cancel the dispense operation
     let cancel_response = post_with_auth(&client, addr, "/cancel").await;
-    assert!(cancel_response.status().is_success(), "Expected success, got: {}", cancel_response.status());
+    assert!(
+        cancel_response.status().is_success(),
+        "Expected success, got: {}",
+        cancel_response.status()
+    );
 
     // Check the status after cancellation
     let hardware_status = get_hardware_status(&client, addr).await;
-    assert_eq!(hardware_status.dispenser_status, "Cancelled", "Dispenser should be in 'Cancelled' state");
+    assert_eq!(
+        hardware_status.dispenser_status, "Cancelled",
+        "Dispenser should be in 'Cancelled' state"
+    );
 }

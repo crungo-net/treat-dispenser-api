@@ -1,13 +1,13 @@
 use crate::application_state::AppStateMutex;
 use crate::application_state::DispenserStatus;
 use crate::error::ApiError;
-use crate::motor::{Direction, StepMode, AsyncStepperMotor};
+use crate::motor::{AsyncStepperMotor, Direction, StepMode};
+use crate::utils::datetime;
 use crate::utils::state_helpers::set_dispenser_status_async;
-use crate::utils::{datetime};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, warn, info};
 use tokio_util::sync::CancellationToken;
+use tracing::{debug, info, warn};
 
 /// Dispenses treats by controlling GPIO pins for a stepper motor.
 /// This function updates the dispenser state to "Dispensing" before starting the dispensing process.
@@ -75,7 +75,7 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
                 state_guard.status = DispenserStatus::Operational;
                 state_guard.last_step_index = Some(async_motor_run_result.unwrap());
                 info!("Treatos dispensed successfully!");
-            },
+            }
             Err(e) => {
                 warn!("Motor operation ended: {:?}", e);
                 if cancel_token.is_cancelled() {
@@ -83,9 +83,9 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
                 } else {
                     set_dispenser_status_async(&app_state_clone, DispenserStatus::Unknown).await;
                 }
-            },
+            }
         }
-        
+
         // Clear the cancellation token after dispensing
         {
             let mut state_guard = app_state_clone.lock().await;
@@ -107,9 +107,10 @@ pub async fn cancel_dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
         state_guard.status = DispenserStatus::Cancelled;
         state_guard.motor_cancel_token = None;
     } else {
-        return Err(ApiError::Hardware("No ongoing motor operation to cancel".to_string()));
+        return Err(ApiError::Hardware(
+            "No ongoing motor operation to cancel".to_string(),
+        ));
     }
 
     Ok(())
 }
-

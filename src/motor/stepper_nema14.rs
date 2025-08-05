@@ -1,9 +1,9 @@
 use crate::motor::{AsyncStepperMotor, Direction, StepMode, StepperMotor};
 
 use crate::application_state::ApplicationState;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
 use rand::Rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use rppal::gpio::{Gpio, OutputPin};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -222,7 +222,6 @@ impl AsyncStepperMotor for StepperNema14 {
                     tokio::time::sleep(Duration::from_micros(step_speed_us)).await;
 
                     if step % 500 == 0 {
-                        
                         let power_reading_result = power_readings_rx.recv().await;
 
                         match power_reading_result {
@@ -333,7 +332,6 @@ impl StepperNema14 {
                     tokio::time::sleep(Duration::from_micros(step_speed_us)).await;
 
                     if step % 500 == 0 {
-                        
                         let power_reading_result = power_readings_rx.recv().await;
 
                         match power_reading_result {
