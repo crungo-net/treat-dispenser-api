@@ -48,7 +48,7 @@ pub struct ApplicationState {
     pub motor: Arc<Box<dyn AsyncStepperMotor + Send + Sync>>,
     pub app_config: AppConfig,
     pub version: String,
-    pub current_sensor: Option<Arc<Mutex<ina219::SensorIna219>>>,
+    pub power_sensor_mutex: Option<Arc<Mutex<ina219::SensorIna219>>>,
     pub power_readings_tx: Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
 }
@@ -75,13 +75,13 @@ impl ApplicationState {
             }
         };
 
-        let (power_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
-        let mut current_sensor = None;
+        let (power_readings_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
+        let mut power_sensor_mutex = None;
 
         let gpio = match Gpio::new() {
             Ok(gpio) => {
                 info!("GPIO initialized successfully");
-                current_sensor = Some(Arc::new(Mutex::new(ina219::SensorIna219::new())));
+                power_sensor_mutex = Some(Arc::new(Mutex::new(ina219::SensorIna219::new())));
                 Some(gpio)
             }
             Err(e) => {
@@ -108,8 +108,8 @@ impl ApplicationState {
             motor,
             app_config,
             version,
-            current_sensor,
-            power_readings_tx: power_tx,
+            power_sensor_mutex,
+            power_readings_tx,
             motor_cancel_token: None,
         }
     }
