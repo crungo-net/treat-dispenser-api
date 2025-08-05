@@ -156,6 +156,7 @@ pub struct AppConfig {
     pub motor_cooldown_ms: u64,
     pub admin_user: String,
     pub admin_password: String,
+    pub motor_current_limit_amps: Option<f32>,
 }
 
 pub fn load_app_config_from_str(config_str: &str) -> AppConfig {

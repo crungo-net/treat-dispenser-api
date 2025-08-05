@@ -6,7 +6,7 @@ use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tokio::sync::broadcast::Sender;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::{error, warn, info};
 
 use crate::AppConfig;
 use crate::motor::AsyncStepperMotor;
@@ -93,7 +93,7 @@ impl ApplicationState {
                 Some(gpio)
             }
             Err(e) => {
-                error!("Failed to initialize GPIO: {}", e);
+                warn!("Failed to initialize GPIO: {}", e);
                 None
             }
         };

@@ -8,12 +8,13 @@ use treat_dispenser_api::application_state::ApplicationState;
 use treat_dispenser_api::build_app;
 use treat_dispenser_api::services::status::StatusResponse;
 use treat_dispenser_api::services::power_monitor::start_power_monitoring_thread;
+use tracing::info;
 
-async fn setup() -> (SocketAddr, Client , Arc<Mutex<ApplicationState>>) {
+async fn setup(config: Option<Box<&str>>) -> (SocketAddr, Client , Arc<Mutex<ApplicationState>>) {
     dotenv::from_filename(".env.test").ok();
-    let (addr, app_state) = start_server().await;
-    wait_for_server(100).await;
     init_logging();
+    let (addr, app_state) = start_server(config).await;
+    wait_for_server(100).await;
     (addr, Client::new(), app_state)
 }
 
@@ -35,16 +36,21 @@ async fn wait_for_server(millis: u64) {
     tokio::time::sleep(tokio::time::Duration::from_millis(millis)).await;
 }
 
-async fn start_server() -> (SocketAddr, Arc<Mutex<ApplicationState>>) {
-    let config_str = r#"
-    api:
-      listen_address: "127.0.0.1:0"
-    motor_cooldown_ms: 5000
-    admin_user: "admin"
-    admin_password: "password"
-    "#;
+async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<ApplicationState>>) {
+    let config_str = config.unwrap_or_else(|| {Box::new(
+        r#"
+        api:
+          listen_address: "127.0.0.1:0"
+          motor_cooldown_ms: 5000
+        admin_user: "admin"
+        admin_password: "password"
+        motor_cooldown_ms: 5000
+        motor_current_limit_amps: 0.7
+        "#)
+    });
+    info!("Using config: {}", config_str);
 
-    let config = treat_dispenser_api::load_app_config_from_str(config_str);
+    let config = treat_dispenser_api::load_app_config_from_str(config_str.as_ref());
     let (_app_state, app) = build_app(config.clone());
     let listener = TcpListener::bind(config.api.listen_address).await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -111,14 +117,14 @@ async fn get_hardware_status(client: &Client, addr: SocketAddr) -> StatusRespons
 
 #[tokio::test]
 async fn test_root_endpoint() {
-    let (addr, client, _) = setup().await;
+    let (addr, client, _) = setup(None).await;
     let response = get_with_auth(&client, addr, "/").await;
     assert!(response.status().is_success());
 }
 
 #[tokio::test]
 async fn test_status_endpoint() {
-    let (addr, client, _) = setup().await;
+    let (addr, client, _) = setup(None).await;
     wait_for_server(5000).await; // Wait for server to be ready
 
     let response = get_with_auth(&client, addr, "/status").await;
@@ -149,7 +155,7 @@ async fn test_status_endpoint() {
 
 #[tokio::test]
 async fn test_power_monitoring_thread() {
-    let (addr, client, app_state) = setup().await;
+    let (addr, client, app_state) = setup(None).await;
     start_power_monitoring_thread(app_state).await;
     wait_for_server(5000).await; // Wait for server to be ready
 
@@ -166,7 +172,7 @@ async fn test_power_monitoring_thread() {
 
 #[tokio::test]
 async fn test_dispense_endpoint_unauthorized() {
-    let (addr, client, _) = setup().await;
+    let (addr, client, _) = setup(None).await;
     let req = client.post(format!("http://{}/dispense", addr));
     let response = req.send().await.unwrap();
     assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
@@ -174,7 +180,7 @@ async fn test_dispense_endpoint_unauthorized() {
 
 #[tokio::test]
 async fn test_dispense_endpoint_authorized() {
-    let (addr, client, _) = setup().await;
+    let (addr, client, _) = setup(None).await;
     let response = post_with_auth(&client, addr, "/dispense").await;
 
     let health_status = get_hardware_status(&client, addr).await;
@@ -191,8 +197,39 @@ async fn test_dispense_endpoint_authorized() {
 }
 
 #[tokio::test]
+async fn test_dispense_endpoint_overcurrent_protection() {
+    let (addr, client, app_state) = setup(Some(Box::new(
+        r#"
+        api:
+          listen_address: "127.0.0.1:0"
+          motor_cooldown_ms: 5000
+        admin_user: "admin"
+        admin_password: "password"
+        motor_cooldown_ms: 5000
+        motor_current_limit_amps: 0.1
+        "#))
+    ).await;
+    start_power_monitoring_thread(app_state.clone()).await;
+
+    let response = post_with_auth(&client, addr, "/dispense").await;
+
+    wait_for_server(5500).await; // wait for mock dispensing to finish
+    let hardware_status = get_hardware_status(&client, addr).await;
+
+    assert!(
+        response.status().is_success(),
+        "Expected success, got: {}",
+        response.status()
+    );
+    assert_eq!(
+        hardware_status.dispenser_status, "Cancelled",
+        "Dispenser should be in 'Cancelled' state"
+    );
+}
+
+#[tokio::test]
 async fn test_dispense_endpoint_busy_response() {
-    let (addr, client, _) = setup().await;
+    let (addr, client, _) = setup(None).await;
     let _ = post_with_auth(&client, addr, "/dispense").await;
     let response = post_with_auth(&client, addr, "/dispense").await;
 
@@ -221,7 +258,7 @@ async fn test_dispense_endpoint_busy_response() {
 
 #[tokio::test]
 async fn test_cancel_dispense_endpoint() {
-    let (addr, client, _) = setup().await;
+    let (addr, client, _) = setup(None).await;
     let response = post_with_auth(&client, addr, "/dispense").await;
 
     assert!(
