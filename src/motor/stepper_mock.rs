@@ -3,6 +3,7 @@ use crate::motor::{AsyncStepperMotor, Direction, StepMode, StepperMotor};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 pub struct StepperMock {}
 
 impl StepperMock {
@@ -19,9 +20,15 @@ impl AsyncStepperMotor for StepperMock {
         _direction: &Direction,
         _step_mode: &StepMode,
         _app_state: &Arc<Mutex<ApplicationState>>,
+        cancel_token: &CancellationToken,
     ) -> Result<u32, String> {
         // Simulate motor operation
-        tokio::time::sleep(Duration::from_millis(3000)).await;
+        for _ in 0..3000 {
+            if cancel_token.is_cancelled() {
+                return Err("Motor operation cancelled".to_string());
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
         Ok(0) // Mock implementation
     }
 }

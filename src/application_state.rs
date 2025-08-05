@@ -5,10 +5,10 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tokio::sync::broadcast::Sender;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use crate::AppConfig;
-use crate::motor::StepperMotor;
 use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
@@ -27,6 +27,7 @@ pub enum DispenserStatus {
     MotorControlError,
     NoGpio,
     Cooldown,
+    Cancelled,
 }
 
 impl fmt::Display for DispenserStatus {
@@ -48,6 +49,7 @@ pub struct ApplicationState {
     pub version: String,
     pub power_monitor: Option<Arc<Mutex<power_monitor::PowerMonitor>>>,
     pub power_readings_tx: Sender<PowerReading>,
+    pub motor_cancel_token: Option<CancellationToken>,
 }
 
 impl ApplicationState {
@@ -107,6 +109,7 @@ impl ApplicationState {
             version,
             power_monitor,
             power_readings_tx: power_tx,
+            motor_cancel_token: None,
         }
     }
 }

@@ -1,12 +1,13 @@
 use crate::application_state::AppStateMutex;
 use crate::application_state::DispenserStatus;
 use crate::error::ApiError;
-use crate::motor::{Direction, StepMode, StepperMotor, AsyncStepperMotor, stepper_nema14::StepperNema14};
+use crate::motor::{Direction, StepMode, AsyncStepperMotor};
 use crate::utils::state_helpers::set_dispenser_status_async;
-use crate::utils::{datetime, state_helpers::set_dispenser_status};
+use crate::utils::{datetime};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info};
+use tracing::{debug, warn, info};
+use tokio_util::sync::CancellationToken;
 
 /// Dispenses treats by controlling GPIO pins for a stepper motor.
 /// This function updates the dispenser state to "Dispensing" before starting the dispensing process.
@@ -20,7 +21,7 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
     {
         let mut state_guard = app_state.lock().await;
         match state_guard.status {
-            DispenserStatus::Operational => {
+            DispenserStatus::Operational | DispenserStatus::Cancelled => {
                 state_guard.status = DispenserStatus::Dispensing;
                 motor = Arc::clone(&state_guard.motor);
             }
@@ -48,26 +49,48 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
     let app_state_clone = Arc::clone(&app_state);
 
     tokio::spawn(async move {
+        let cancel_token = {
+            let token = CancellationToken::new();
+            // short lock to set the cancellation token
+            app_state_clone.lock().await.motor_cancel_token = Some(token.clone());
+            token
+        };
+
         let step_mode = StepMode::Full;
         let dir = Direction::CounterClockwise;
         let async_motor_run_result = motor
-            .run_motor_degrees_async(2160.0, &dir, &step_mode, &app_state_clone)
+            .run_motor_degrees_async(2160.0, &dir, &step_mode, &app_state_clone, &cancel_token)
             .await;
 
-        if async_motor_run_result.is_err() {
-            error!("Failed to run motor: {:?}", async_motor_run_result.err());
-            set_error_status(&app_state_clone).await;
-        } else {
-            // enforce a cooldown period after operation
-            set_dispenser_status_async(&app_state_clone, DispenserStatus::Cooldown).await;
-            let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms;
-            tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
+        match async_motor_run_result {
+            Ok(steps) => {
+                info!("Motor run completed successfully, steps: {}", steps);
+                // enforce a cooldown period after operation
+                set_dispenser_status_async(&app_state_clone, DispenserStatus::Cooldown).await;
+                let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms;
+                tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
 
+                let mut state_guard = app_state_clone.lock().await;
+                state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
+                state_guard.status = DispenserStatus::Operational;
+                state_guard.last_step_index = Some(async_motor_run_result.unwrap());
+                info!("Treatos dispensed successfully!");
+            },
+            Err(e) => {
+                warn!("Motor operation ended: {:?}", e);
+                if cancel_token.is_cancelled() {
+                    warn!("Motor operation was cancelled.");
+                } else {
+                    set_dispenser_status_async(&app_state_clone, DispenserStatus::Unknown).await;
+                }
+            },
+        }
+        
+        // Clear the cancellation token after dispensing
+        {
             let mut state_guard = app_state_clone.lock().await;
-            state_guard.last_dispense_time = Some(datetime::get_formatted_current_timestamp());
-            state_guard.status = DispenserStatus::Operational;
-            state_guard.last_step_index = Some(async_motor_run_result.unwrap());
-            info!("Treatos dispensed successfully!");
+            state_guard.motor_cancel_token = None;
+            debug!("Motor cancellation token cleared after dispensing.");
         }
     });
 
@@ -75,14 +98,18 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
     Ok(())
 }
 
-async fn set_error_status(hw_state: &AppStateMutex) {
-    if let Ok(mut state_guard) = hw_state.try_lock() {
-        state_guard.status = DispenserStatus::Unknown;
+pub async fn cancel_dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
+    let mut state_guard = app_state.lock().await;
+
+    if let Some(cancel_token) = &state_guard.motor_cancel_token {
+        cancel_token.cancel();
+        info!("Motor operation cancelled successfully.");
+        state_guard.status = DispenserStatus::Cancelled;
+        state_guard.motor_cancel_token = None;
     } else {
-        // Try again after a small delay
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        if let Ok(mut state_guard) = hw_state.try_lock() {
-            state_guard.status = DispenserStatus::Unknown;
-        }
+        return Err(ApiError::Hardware("No ongoing motor operation to cancel".to_string()));
     }
+
+    Ok(())
 }
+

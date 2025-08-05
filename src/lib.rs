@@ -63,6 +63,7 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
 
     let protected_routes = Router::new()
         .route("/dispense", get(routes::dispense::dispense_treat))
+        .route("/cancel", get(routes::dispense::cancel_dispense))
         .layer(axum::middleware::from_fn(auth_middleware));
 
     let merged_routes = public_routes.merge(protected_routes);

@@ -42,6 +42,7 @@ linux-embedded-hal = "0.4.0"
 anyhow = "1.0.98"
 futures = "0.3.31"
 async-trait = "0.1.88"
+tokio-util = { version = "0.7.16"}
 
 
 [dev-dependencies]

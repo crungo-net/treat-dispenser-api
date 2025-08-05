@@ -3,6 +3,7 @@ use core::fmt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use async_trait::async_trait;
+use tokio_util::sync::CancellationToken;
 
 pub mod stepper_28byj48;
 pub mod stepper_mock;
@@ -44,6 +45,7 @@ pub trait AsyncStepperMotor: Send + Sync + StepperMotor {
         direction: &Direction,
         step_mode: &StepMode,
         app_state: &Arc<Mutex<ApplicationState>>,
+        cancel_token: &CancellationToken,
     ) -> Result<u32, String>;
 }
 

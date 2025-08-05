@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tracing::info;
+use tokio_util::sync::CancellationToken;
 
 pub struct Stepper28BYJ48 {}
 
@@ -16,6 +17,7 @@ impl AsyncStepperMotor for Stepper28BYJ48 {
         direction: &Direction,
         step_mode: &StepMode,
         app_state: &Arc<Mutex<ApplicationState>>,
+        _cancel_token: &CancellationToken,
     ) -> Result<u32, String> {
         self.run_motor_degrees(degrees, direction, step_mode, app_state)
     }

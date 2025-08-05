@@ -19,3 +19,12 @@ pub async fn dispense_treat(
     };
     Ok("Dispensing started, please wait...")
 }
+
+pub async fn cancel_dispense(
+    State(hw_state): State<application_state::AppStateMutex>,
+) -> Result<&'static str, ApiError> {
+    match dispenser::cancel_dispense(hw_state).await {
+        Ok(_) => Ok("Dispensing cancelled successfully."),
+        Err(e) => Err(e),
+    }
+}

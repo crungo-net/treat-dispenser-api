@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
 
 pub struct StepperNema14 {
@@ -147,6 +148,7 @@ impl AsyncStepperMotor for StepperNema14 {
         direction: &Direction,
         step_mode: &StepMode,
         app_state: &Arc<Mutex<ApplicationState>>,
+        cancel_token: &CancellationToken,
     ) -> Result<u32, String> {
         let steps = (degrees / 1.80) as u32;
         info!("Starting NEMA14 motor with {} steps [ASYNC]", steps);
@@ -194,6 +196,11 @@ impl AsyncStepperMotor for StepperNema14 {
                 let mut random_steps = rng.random_range(110..=200);
 
                 for step in 0..steps {
+                    if cancel_token.is_cancelled() {
+                        info!("Motor run cancelled");
+                        return Err("Motor run cancelled".to_string());
+                    }
+
                     i += 1;
                     if i % random_steps == 0 {
                         if is_dir_high {

@@ -147,7 +147,7 @@ async fn test_dispense_endpoint_busy_response() {
         "Dispenser should be in 'Dispensing' state"
     );
 
-    wait_for_server(3500).await; // wait for mock dispensing to finish
+    wait_for_server(5500).await; // wait for mock dispensing to finish
     let hardware_status = get_hardware_status(&client, addr).await;
     assert_eq!(
         hardware_status.dispenser_status, "Cooldown",
@@ -160,4 +160,20 @@ async fn test_dispense_endpoint_busy_response() {
         hardware_status.dispenser_status, "Operational",
         "Dispenser should be back to 'Operational' state after cooldown"
     );
+}
+
+#[tokio::test]
+async fn test_cancel_dispense_endpoint() {
+    let (addr, client) = setup().await;
+    let response = get_with_auth(&client, addr, "/dispense").await;
+
+    assert!(response.status().is_success(), "Expected success, got: {}", response.status());
+
+    // Cancel the dispense operation
+    let cancel_response = get_with_auth(&client, addr, "/cancel").await;
+    assert!(cancel_response.status().is_success(), "Expected success, got: {}", cancel_response.status());
+
+    // Check the status after cancellation
+    let hardware_status = get_hardware_status(&client, addr).await;
+    assert_eq!(hardware_status.dispenser_status, "Cancelled", "Dispenser should be in 'Cancelled' state");
 }
