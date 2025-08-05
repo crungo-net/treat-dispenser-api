@@ -62,5 +62,4 @@ pub async fn handle_login(
     } else {
         Err(ApiError::Unauthorized)
     }
-
 }

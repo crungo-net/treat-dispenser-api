@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use crate::application_state;
 
@@ -16,8 +16,8 @@ pub async fn start_power_monitoring_thread(
             info!("Starting power monitoring thread");
             loop {
                 match &current_sensor {
-                    Some(sensor) => {
-                        let power_reading_result = sensor.lock().await.get_power_reading();
+                    Some(sensor_mutex) => {
+                        let power_reading_result = sensor_mutex.lock().await.get_power_reading();
 
                         match power_reading_result {
                             Ok(power_reading) => {

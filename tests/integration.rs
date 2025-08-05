@@ -57,7 +57,12 @@ async fn start_server() -> SocketAddr {
     addr
 }
 
-async fn login(client: &Client, addr: SocketAddr, username: &str, password: &str) -> treat_dispenser_api::services::auth::LoginResponse {
+async fn login(
+    client: &Client,
+    addr: SocketAddr,
+    username: &str,
+    password: &str,
+) -> treat_dispenser_api::services::auth::LoginResponse {
     let url = format!("http://{}/login", addr);
     let req = client.post(&url);
     let req = req.json(&serde_json::json!({
@@ -66,7 +71,10 @@ async fn login(client: &Client, addr: SocketAddr, username: &str, password: &str
     }));
     let response = req.send().await.unwrap();
     // deserialize the response to get the token (LoginResponse)
-    response.json::<treat_dispenser_api::services::auth::LoginResponse>().await.unwrap()
+    response
+        .json::<treat_dispenser_api::services::auth::LoginResponse>()
+        .await
+        .unwrap()
 }
 
 async fn get_with_auth(client: &Client, addr: SocketAddr, path: &str) -> reqwest::Response {

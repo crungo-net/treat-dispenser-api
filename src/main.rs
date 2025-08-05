@@ -1,8 +1,5 @@
 use treat_dispenser_api::load_app_config;
-use treat_dispenser_api::{
-    build_app, configure_logging, start_server,
-    services::power_monitor
-};
+use treat_dispenser_api::{build_app, configure_logging, services::power_monitor, start_server};
 
 #[tokio::main]
 async fn main() {
