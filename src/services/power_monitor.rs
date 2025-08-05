@@ -104,3 +104,39 @@ pub async fn start_power_monitoring_thread(
         }
     });
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*; 
+
+    #[test]
+    fn test_calculate_average_power_and_current() {
+        let mut monitor = PowerMonitor::new();
+        monitor.add_reading(PowerReading {
+            bus_voltage_volts: 12.0,
+            current_amps: 1.0,
+            power_watts: 12.0,
+        });
+        monitor.add_reading(PowerReading {
+            bus_voltage_volts: 12.0,
+            current_amps: 2.0,
+            power_watts: 24.0,
+        }); 
+        assert_eq!(monitor.get_average_power(), 18.0);
+        assert_eq!(monitor.get_average_current(), 1.5);
+    }
+
+    #[test]
+    fn test_clear_readings() {
+        let mut monitor = PowerMonitor::new();
+        monitor.add_reading(PowerReading {
+            bus_voltage_volts: 12.0,
+            current_amps: 1.0,
+            power_watts: 12.0,
+        });
+        assert!(!monitor.get_readings().is_empty());
+        monitor.clear_readings();
+        assert!(monitor.get_readings().is_empty());
+    }
+}
