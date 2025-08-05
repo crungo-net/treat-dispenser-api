@@ -65,15 +65,15 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
     let protected_routes = Router::new()
         .route("/dispense", post(routes::dispense::dispense_treat))
         .route("/cancel", post(routes::dispense::cancel_dispense))
-        .layer(axum::middleware::from_fn(middleware::auth::token_auth_middleware));
+        .layer(axum::middleware::from_fn(
+            middleware::auth::token_auth_middleware,
+        ));
 
     let merged_routes = public_routes.merge(protected_routes);
 
     return (
         app_state.clone(),
-        merged_routes.with_state(app_state)
-        .layer(cors)
-        .layer(
+        merged_routes.with_state(app_state).layer(cors).layer(
             TraceLayer::new_for_http()
                 .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)) // log http failures at WARN level
                 .make_span_with(|request: &Request<_>| {
@@ -95,40 +95,6 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
                 .on_response(log_http_response_code),
         ),
     );
-}
-
-pub async fn start_power_monitoring_thread(
-    app_state: Arc<Mutex<application_state::ApplicationState>>,
-) {
-    tokio::spawn({
-        let power_monitor = app_state.lock().await.power_monitor.clone();
-        let power_readings_tx = app_state.lock().await.power_readings_tx.clone();
-        async move {
-            info!("Starting power monitoring thread");
-            loop {
-                match &power_monitor {
-                    Some(monitor) => {
-                        let power_reading_result = monitor.lock().await.get_power_reading();
-
-                        match power_reading_result {
-                            Ok(power_reading) => {
-                                // publish the power reading to the channel
-                                let _ = power_readings_tx.send(power_reading);
-                            }
-                            Err(e) => {
-                                error!("Failed to get power reading: {}", e);
-                            }
-                        }
-                    }
-                    None => {
-                        error!("Power monitor is not initialized");
-                        break;
-                    }
-                }
-                tokio::time::sleep(Duration::from_millis(200)).await;
-            }
-        }
-    });
 }
 
 pub async fn start_server(app: Router, config: AppConfig) {
@@ -190,6 +156,7 @@ pub struct AppConfig {
     pub motor_cooldown_ms: u64,
     pub admin_user: String,
     pub admin_password: String,
+    pub motor_current_limit_amps: Option<f32>,
 }
 
 pub fn load_app_config_from_str(config_str: &str) -> AppConfig {

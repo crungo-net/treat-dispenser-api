@@ -1,11 +1,8 @@
-
-use axum::{
-    extract::{State, Json},
-};
 use crate::application_state;
-use crate::services::auth::{LoginResponse, LoginRequest, handle_login};
-use tracing::info;
 use crate::error::ApiError;
+use crate::services::auth::{LoginRequest, LoginResponse, handle_login};
+use axum::extract::{Json, State};
+use tracing::info;
 
 pub async fn login(
     State(app_state): State<application_state::AppStateMutex>,
@@ -17,6 +14,6 @@ pub async fn login(
             info!("Login successful for user: {}", &payload.username);
             Ok(Json(response))
         }
-        Err(e) => { Err(e) }
+        Err(e) => Err(e),
     }
 }

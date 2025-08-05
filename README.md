@@ -123,12 +123,14 @@ The application uses a multi-layered approach to configuration:
 | `DISPENSER_JWT_SECRET` | Secret key for signing JWT tokens           | `supersecret`   |
 | `RUST_LOG`           | Log level (`trace`, `debug`, `info`, `warn`, `error`) | `info`          |
 | `MOTOR_TYPE`         | Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`) | `Stepper28BYJ48` |
+| `POWER_SENSOR`       | Power sensor implementation to use (`SensorINA219`, `SensorMock`) | `StepperINA219` |
 
 Example `.env` file:
 ```
 DISPENSER_JWT_SECRET=your_jwt_secret
 RUST_LOG=info
-MOTOR_TYPE=Stepper28BYJ48
+MOTOR_TYPE=StepperNema14
+POWER_SENSOR=SensorINA219
 ```
 
 ## Justfile Commands
@@ -277,7 +279,7 @@ Other step modes (quarter, eighth, sixteenth) are defined but not implemented fo
 
 ### NEMA-14 Motor Support
 
-The application also supports NEMA-14 stepper motors with the A4988 driver, using the following pin configuration:
+The application also supports NEMA-14 stepper motors with the A4988 driver, using the following default pin configuration:
 
 - Pin 26: Direction pin
 - Pin 19: Step pin  
@@ -325,6 +327,7 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
     - `dispenser.rs` – Treat dispensing logic
     - `status.rs` – Status and health check logic
     - `auth.rs` – Authentication and JWT logic
+    - `power_monitor.rs` – Power monitoring and alert logic
 
 - `src/routes/` – API route handlers (HTTP endpoints)
     - `mod.rs` – Exports route modules
@@ -338,7 +341,8 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 
 - `src/sensors/` – Sensor integration
     - `mod.rs` – Exports sensor modules
-    - `power_monitor.rs` – INA219 power/current/voltage monitoring
+    - `sensor_ina219.rs` – INA219 power/current/voltage monitoring via I2C
+    - `sensor_mock.rs` - Mock sensor implementation for testing
 
 - `src/utils/` – Utility functions and helpers
     - `mod.rs` – Exports utility modules
@@ -354,11 +358,18 @@ This structure separates business logic, hardware integration, HTTP interface, s
 The API supports real-time power, voltage, and current monitoring using the INA219 sensor via I2C:
 
 - **INA219 Integration:**
-  - Implemented in `src/sensors/power_monitor.rs`
+  - Implemented in `src/sensors/sensor_ina219.rs` and exposed via `src/sensors/mod.rs`.
   - Uses the [`ina219`](https://crates.io/crates/ina219) crate and `linux-embedded-hal` for I2C communication.
   - Initializes the sensor on `/dev/i2c-1` (default address `0x40`).
   - Calibrates for 1A resolution and 0.1Ω shunt resistor (configurable in code).
   - Provides bus voltage, current, and calculated power readings.
+
+- **Power Monitoring Logic:**
+  - The `PowerMonitor` struct in `src/services/power_monitor.rs` collects and averages power readings.
+  - The monitoring thread is started by calling `start_power_monitoring_thread` (now located in `src/services/power_monitor.rs`).
+  - The thread polls the INA219 sensor every 100ms, adds readings to the monitor, and publishes them to the application state via a broadcast channel.
+  - If the average current exceeds a threshold (default: 0.7A), the thread will log a warning and cancel ongoing motor operations for safety.
+  - Readings are periodically cleared to avoid unbounded memory growth.
 
 - **API Exposure:**
   - Power readings are published to the application state and exposed via the `/status` endpoint.
@@ -367,10 +378,6 @@ The API supports real-time power, voltage, and current monitoring using the INA2
     - `motor_current_amps`
     - `motor_power_watts`
   - If the sensor is unavailable, dummy values are returned and errors are logged.
-
-- **Threaded Monitoring:**
-  - A background thread periodically samples the INA219 and updates readings (see `start_power_monitoring_thread` in `src/lib.rs`).
-  - Readings are sent via a channel to the status service.
 
 - **Error Handling:**
   - Initialization and read errors are logged.
@@ -384,7 +391,7 @@ power_monitor:
   shunt_ohms: 0.1
   calibration_amps: 1.0
 ```
-*(Note: Actual config is currently hardcoded; see `power_monitor.rs` for details.)*
+*(Note: Actual config is currently hardcoded and yaml support will be added in future releases; see `sensors/sensor_ina219.rs` and `services/power_monitor.rs` for details.)*
 
 ## Testing
 

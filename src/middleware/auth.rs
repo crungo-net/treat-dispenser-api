@@ -1,4 +1,4 @@
-use crate::{error::ApiError};
+use crate::error::ApiError;
 use axum::{
     extract::Request,
     http::{self, HeaderValue},
@@ -6,7 +6,7 @@ use axum::{
     response::Response,
 };
 use futures::future::BoxFuture;
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use jsonwebtoken::{DecodingKey, Validation, decode};
 use tracing::{error, warn};
 
 use crate::services::auth::Claims;
@@ -52,13 +52,11 @@ pub fn create_auth_middleware()
     }
 }
 
-pub async fn token_auth_middleware(
-    request: Request,
-    next: Next,
-) -> Result<Response, ApiError> {
+pub async fn token_auth_middleware(request: Request, next: Next) -> Result<Response, ApiError> {
     // Extract token from Authorization header
-    let auth_header: Option<String> =
-        request.headers().get(http::header::AUTHORIZATION)
+    let auth_header: Option<String> = request
+        .headers()
+        .get(http::header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .and_then(|auth_value| {
             if auth_value.starts_with("Bearer ") {
@@ -69,7 +67,7 @@ pub async fn token_auth_middleware(
         });
 
     let jwt_secret = std::env::var("DISPENSER_JWT_SECRET").unwrap_or("supersecret".to_string());
-    
+
     if let Some(token) = auth_header {
         // Validate token
         match decode::<Claims>(

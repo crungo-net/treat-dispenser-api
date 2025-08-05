@@ -4,8 +4,10 @@ use ina219::calibration::IntCalibration;
 use ina219::calibration::MicroAmpere;
 use linux_embedded_hal::I2cdev;
 use tracing::{debug, error, info};
+use crate::sensors::PowerReading;
+use crate::sensors::PowerSensor;
 
-pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, String> {
+fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, String> {
     info!("Initializing INA219 sensor");
 
     // Initialize the I2C device
@@ -43,34 +45,17 @@ pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>
     Ok(ina219)
 }
 
-#[derive(Clone, Debug)]
-pub struct PowerReading {
-    pub bus_voltage_volts: f32,
-    pub current_amps: f32,
-    pub power_watts: f32,
-}
-
-impl PowerReading {
-    pub fn dummy() -> Self {
-        PowerReading {
-            bus_voltage_volts: -1.0,
-            current_amps: -1.0,
-            power_watts: -1.0,
-        }
-    }
-}
-
-pub struct PowerMonitor {
+pub struct SensorIna219 {
     ina219: SyncIna219<I2cdev, Option<IntCalibration>>,
 }
 
-impl PowerMonitor {
+impl SensorIna219 {
     pub fn new() -> Self {
         let ina219 = init_ina219_sensor().unwrap_or_else(|e| {
             error!("Failed to initialize INA219 sensor: {}", e);
             panic!("INA219 sensor initialization failed");
         });
-        PowerMonitor { ina219 }
+        SensorIna219 { ina219 }
     }
 
     pub fn get_bus_voltage(&mut self) -> Result<f32, String> {
@@ -89,11 +74,17 @@ impl PowerMonitor {
         Ok(current.0 as f32 / 1000.0) // Convert ma to a
     }
 
-    pub fn get_power_reading(&mut self) -> Result<PowerReading, String> {
+}
+
+impl PowerSensor for SensorIna219 {
+    fn get_name(&self) -> String {
+        "SensorINA219".to_string()
+    }
+
+    fn get_power_reading(&mut self) -> Result<PowerReading, String> {
         let bus_voltage = self.get_bus_voltage()?;
         let current = self.get_current_amps()?;
         let power = bus_voltage * current;
-        //debug!("Power reading: {} V, {} A, {} W", bus_voltage, current, power);
 
         Ok(PowerReading {
             bus_voltage_volts: bus_voltage,

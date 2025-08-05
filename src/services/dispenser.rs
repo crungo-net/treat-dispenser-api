@@ -80,6 +80,7 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
                 warn!("Motor operation ended: {:?}", e);
                 if cancel_token.is_cancelled() {
                     warn!("Motor operation was cancelled.");
+                    set_dispenser_status_async(&app_state_clone, DispenserStatus::Cancelled).await;
                 } else {
                     set_dispenser_status_async(&app_state_clone, DispenserStatus::Unknown).await;
                 }

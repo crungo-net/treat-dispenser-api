@@ -6,14 +6,15 @@ use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tokio::sync::broadcast::Sender;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::{error, warn, info};
 
 use crate::AppConfig;
 use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
-use crate::sensors::power_monitor::{self, PowerReading};
+use crate::sensors::PowerReading;
+use crate::sensors::PowerSensor;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -47,7 +48,7 @@ pub struct ApplicationState {
     pub motor: Arc<Box<dyn AsyncStepperMotor + Send + Sync>>,
     pub app_config: AppConfig,
     pub version: String,
-    pub power_monitor: Option<Arc<Mutex<power_monitor::PowerMonitor>>>,
+    pub power_sensor_mutex: Option<Arc<Mutex<Box<dyn PowerSensor>>>>,
     pub power_readings_tx: Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
 }
@@ -74,17 +75,25 @@ impl ApplicationState {
             }
         };
 
-        let (power_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
-        let mut power_monitor = None;
+        let power_sensor_env = std::env::var("POWER_SENSOR")
+            .unwrap_or_else(|_| "SensorINA219".to_string());
+        let power_sensor_mutex = match init_power_sensor(power_sensor_env, &app_config) {
+            Ok(sensor) => Some(Arc::new(Mutex::new(sensor))),
+            Err(e) => {
+                error!("Failed to initialize power sensor: {}", e);
+                None
+            }
+        };
+
+        let (power_readings_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
 
         let gpio = match Gpio::new() {
             Ok(gpio) => {
                 info!("GPIO initialized successfully");
-                power_monitor = Some(Arc::new(Mutex::new(power_monitor::PowerMonitor::new())));
                 Some(gpio)
             }
             Err(e) => {
-                error!("Failed to initialize GPIO: {}", e);
+                warn!("Failed to initialize GPIO: {}", e);
                 None
             }
         };
@@ -107,11 +116,22 @@ impl ApplicationState {
             motor,
             app_config,
             version,
-            power_monitor,
-            power_readings_tx: power_tx,
+            power_sensor_mutex,
+            power_readings_tx,
             motor_cancel_token: None,
         }
     }
+}
+
+fn init_power_sensor(
+    sensor_name: String,
+    _app_config: &AppConfig,
+) -> Result<Box<dyn PowerSensor>, String> {
+    match sensor_name.as_str() {
+        "SensorINA219" => return Ok(Box::new(crate::sensors::sensor_ina219::SensorIna219::new())),
+        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())), 
+        _ => return Err(format!("Unsupported power sensor type '{}'", sensor_name)),
+    };
 }
 
 fn init_motor(
