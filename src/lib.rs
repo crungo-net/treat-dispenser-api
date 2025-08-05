@@ -55,16 +55,17 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
         ])
         .allow_headers(Any);
 
-    let auth_middleware = create_auth_middleware();
+    let _auth_middleware = create_auth_middleware();
 
     let public_routes = Router::new()
         .route("/", get(routes::root))
+        .route("/login", post(routes::auth::login))
         .route("/status", get(routes::status::detailed_health));
 
     let protected_routes = Router::new()
         .route("/dispense", post(routes::dispense::dispense_treat))
         .route("/cancel", post(routes::dispense::cancel_dispense))
-        .layer(axum::middleware::from_fn(auth_middleware));
+        .layer(axum::middleware::from_fn(middleware::auth::token_auth_middleware));
 
     let merged_routes = public_routes.merge(protected_routes);
 
