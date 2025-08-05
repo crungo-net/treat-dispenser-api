@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::application_state;
 use crate::sensors::PowerReading;
@@ -62,6 +62,11 @@ pub async fn start_power_monitoring_thread(
                 // clear power readings after every 50000 readings
                 if i % 50_000 == 0 {
                     let avg_current = power_monitor.get_average_current();
+                    debug!(
+                        "Average current over last {} readings: {} A",
+                        power_monitor.get_readings().len(),
+                        avg_current
+                    );
 
                     // if average current is above 0.7 amps, log it and cancel ongoing motor operations
                     // todo: make current limit configurable?
@@ -85,7 +90,6 @@ pub async fn start_power_monitoring_thread(
                         match power_reading_result {
                             Ok(power_reading) => {
                                 // publish the power reading to the channel
-                                info!("Power reading: {:?}", power_reading);
                                 power_monitor.add_reading(power_reading.clone());
                                 let _ = power_readings_tx.send(power_reading);
                             }

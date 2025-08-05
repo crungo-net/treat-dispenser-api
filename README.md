@@ -123,12 +123,14 @@ The application uses a multi-layered approach to configuration:
 | `DISPENSER_JWT_SECRET` | Secret key for signing JWT tokens           | `supersecret`   |
 | `RUST_LOG`           | Log level (`trace`, `debug`, `info`, `warn`, `error`) | `info`          |
 | `MOTOR_TYPE`         | Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`) | `Stepper28BYJ48` |
+| `POWER_SENSOR`       | Power sensor implementation to use (`SensorINA219`, `SensorMock`) | `StepperINA219` |
 
 Example `.env` file:
 ```
 DISPENSER_JWT_SECRET=your_jwt_secret
 RUST_LOG=info
-MOTOR_TYPE=Stepper28BYJ48
+MOTOR_TYPE=StepperNema14
+POWER_SENSOR=SensorINA219
 ```
 
 ## Justfile Commands
@@ -277,7 +279,7 @@ Other step modes (quarter, eighth, sixteenth) are defined but not implemented fo
 
 ### NEMA-14 Motor Support
 
-The application also supports NEMA-14 stepper motors with the A4988 driver, using the following pin configuration:
+The application also supports NEMA-14 stepper motors with the A4988 driver, using the following default pin configuration:
 
 - Pin 26: Direction pin
 - Pin 19: Step pin  
@@ -325,7 +327,7 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
     - `dispenser.rs` – Treat dispensing logic
     - `status.rs` – Status and health check logic
     - `auth.rs` – Authentication and JWT logic
-    - `power_monitor.rs` – Power monitoring logic for INA219 sensor
+    - `power_monitor.rs` – Power monitoring and alert logic
 
 - `src/routes/` – API route handlers (HTTP endpoints)
     - `mod.rs` – Exports route modules
@@ -339,7 +341,8 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 
 - `src/sensors/` – Sensor integration
     - `mod.rs` – Exports sensor modules
-    - `ina219.rs` – INA219 power/current/voltage monitoring via I2C
+    - `sensor_ina219.rs` – INA219 power/current/voltage monitoring via I2C
+    - `sensor_mock.rs` - Mock sensor implementation for testing
 
 - `src/utils/` – Utility functions and helpers
     - `mod.rs` – Exports utility modules
@@ -388,7 +391,7 @@ power_monitor:
   shunt_ohms: 0.1
   calibration_amps: 1.0
 ```
-*(Note: Actual config is currently hardcoded; see `ina219.rs` and `power_monitor.rs` for details.)*
+*(Note: Actual config is currently hardcoded and yaml support will be added in future releases; see `sensors/sensor_ina219.rs` and `services/power_monitor.rs` for details.)*
 
 ## Testing
 
