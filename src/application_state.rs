@@ -13,7 +13,8 @@ use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
-use crate::sensors::ina219::{self, PowerReading};
+use crate::sensors::ina219;
+use crate::sensors::PowerReading;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 

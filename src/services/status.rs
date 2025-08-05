@@ -1,5 +1,5 @@
 use crate::application_state::ApplicationState;
-use crate::sensors::ina219::PowerReading;
+use crate::sensors::PowerReading;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

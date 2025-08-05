@@ -4,6 +4,7 @@ use ina219::calibration::IntCalibration;
 use ina219::calibration::MicroAmpere;
 use linux_embedded_hal::I2cdev;
 use tracing::{debug, error, info};
+use crate::sensors::PowerReading;
 
 fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, String> {
     info!("Initializing INA219 sensor");
@@ -41,23 +42,6 @@ fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, St
         address.as_byte()
     );
     Ok(ina219)
-}
-
-#[derive(Clone, Debug)]
-pub struct PowerReading {
-    pub bus_voltage_volts: f32,
-    pub current_amps: f32,
-    pub power_watts: f32,
-}
-
-impl PowerReading {
-    pub fn dummy() -> Self {
-        PowerReading {
-            bus_voltage_volts: -1.0,
-            current_amps: -1.0,
-            power_watts: -1.0,
-        }
-    }
 }
 
 pub struct SensorIna219 {
