@@ -9,7 +9,7 @@ pub mod utils;
 
 use axum::extract::ConnectInfo;
 use axum::http::{Method, Request, StatusCode};
-use axum::{Router, routing::get};
+use axum::{Router, routing::get, routing::post};
 use serde_yaml;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::{DefaultOnFailure, TraceLayer};
-use tracing::{Level, debug, error, info, warn};
+use tracing::{Level, debug, error, info, trace, warn};
 use tracing_subscriber::EnvFilter;
 
 use crate::application_state::ApplicationState;
@@ -62,7 +62,8 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
         .route("/status", get(routes::status::detailed_health));
 
     let protected_routes = Router::new()
-        .route("/dispense", get(routes::dispense::dispense_treat))
+        .route("/dispense", post(routes::dispense::dispense_treat))
+        .route("/cancel", post(routes::dispense::cancel_dispense))
         .layer(axum::middleware::from_fn(auth_middleware));
 
     let merged_routes = public_routes.merge(protected_routes);
@@ -169,7 +170,7 @@ fn log_http_response_code<B>(
             error!("response finished: {}", response.status())
         }
         _ => {
-            debug!("response finished: {}", response.status())
+            trace!("response finished: {}", response.status())
         }
     }
 }

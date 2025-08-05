@@ -63,6 +63,14 @@ async fn get_with_auth(client: &Client, addr: SocketAddr, path: &str) -> reqwest
     req.send().await.unwrap()
 }
 
+async fn post_with_auth(client: &Client, addr: SocketAddr, path: &str) -> reqwest::Response {
+    let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
+    let url = format!("http://{}{}", addr, path);
+    let req = client.post(&url);
+    let req = req.header("Authorization", format!("Bearer {}", token));
+    req.send().await.unwrap()
+}
+
 async fn get_hardware_status(client: &Client, addr: SocketAddr) -> StatusResponse {
     let response = get_with_auth(client, addr, "/status").await;
     assert!(
@@ -110,7 +118,7 @@ async fn test_status_endpoint() {
 #[tokio::test]
 async fn test_dispense_endpoint_unauthorized() {
     let (addr, client) = setup().await;
-    let req = client.get(format!("http://{}/dispense", addr));
+    let req = client.post(format!("http://{}/dispense", addr));
     let response = req.send().await.unwrap();
     assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
 }
@@ -118,7 +126,7 @@ async fn test_dispense_endpoint_unauthorized() {
 #[tokio::test]
 async fn test_dispense_endpoint_authorized() {
     let (addr, client) = setup().await;
-    let response = get_with_auth(&client, addr, "/dispense").await;
+    let response = post_with_auth(&client, addr, "/dispense").await;
 
     let health_status = get_hardware_status(&client, addr).await;
 
@@ -136,8 +144,8 @@ async fn test_dispense_endpoint_authorized() {
 #[tokio::test]
 async fn test_dispense_endpoint_busy_response() {
     let (addr, client) = setup().await;
-    let _ = get_with_auth(&client, addr, "/dispense").await;
-    let response = get_with_auth(&client, addr, "/dispense").await;
+    let _ = post_with_auth(&client, addr, "/dispense").await;
+    let response = post_with_auth(&client, addr, "/dispense").await;
 
     let hardware_status = get_hardware_status(&client, addr).await;
 
@@ -147,7 +155,7 @@ async fn test_dispense_endpoint_busy_response() {
         "Dispenser should be in 'Dispensing' state"
     );
 
-    wait_for_server(3500).await; // wait for mock dispensing to finish
+    wait_for_server(5500).await; // wait for mock dispensing to finish
     let hardware_status = get_hardware_status(&client, addr).await;
     assert_eq!(
         hardware_status.dispenser_status, "Cooldown",
@@ -159,5 +167,32 @@ async fn test_dispense_endpoint_busy_response() {
     assert_eq!(
         hardware_status.dispenser_status, "Operational",
         "Dispenser should be back to 'Operational' state after cooldown"
+    );
+}
+
+#[tokio::test]
+async fn test_cancel_dispense_endpoint() {
+    let (addr, client) = setup().await;
+    let response = post_with_auth(&client, addr, "/dispense").await;
+
+    assert!(
+        response.status().is_success(),
+        "Expected success, got: {}",
+        response.status()
+    );
+
+    // Cancel the dispense operation
+    let cancel_response = post_with_auth(&client, addr, "/cancel").await;
+    assert!(
+        cancel_response.status().is_success(),
+        "Expected success, got: {}",
+        cancel_response.status()
+    );
+
+    // Check the status after cancellation
+    let hardware_status = get_hardware_status(&client, addr).await;
+    assert_eq!(
+        hardware_status.dispenser_status, "Cancelled",
+        "Dispenser should be in 'Cancelled' state"
     );
 }

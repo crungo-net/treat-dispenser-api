@@ -43,7 +43,7 @@ pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>
     Ok(ina219)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PowerReading {
     pub bus_voltage_volts: f32,
     pub current_amps: f32,

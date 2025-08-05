@@ -1,7 +1,9 @@
 use crate::application_state::ApplicationState;
+use async_trait::async_trait;
 use core::fmt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 pub mod stepper_28byj48;
 pub mod stepper_mock;
@@ -32,7 +34,22 @@ pub enum Direction {
     CounterClockwise,
 }
 
-pub trait StepperMotor {
+#[async_trait]
+pub trait AsyncStepperMotor: Send + Sync + StepperMotor {
+    /// Runs the motor for a specified number of degrees in a given direction and step mode.
+    /// The number of steps is calculated based on the step mode and the degrees.
+    /// Returns the last step index reached after running the motor.
+    async fn run_motor_degrees_async(
+        &self,
+        degrees: f32,
+        direction: &Direction,
+        step_mode: &StepMode,
+        app_state: &Arc<Mutex<ApplicationState>>,
+        cancel_token: &CancellationToken,
+    ) -> Result<u32, String>;
+}
+
+pub trait StepperMotor: std::any::Any {
     fn run_motor(
         &self,
         steps: u32,
@@ -63,4 +80,6 @@ pub trait StepperMotor {
     fn requires_gpio(&self) -> bool {
         true
     }
+
+    fn as_any(&self) -> &dyn std::any::Any;
 }

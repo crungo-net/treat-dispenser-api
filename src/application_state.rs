@@ -5,10 +5,11 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tokio::sync::broadcast::Sender;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
 use crate::AppConfig;
-use crate::motor::StepperMotor;
+use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
@@ -26,6 +27,7 @@ pub enum DispenserStatus {
     MotorControlError,
     NoGpio,
     Cooldown,
+    Cancelled,
 }
 
 impl fmt::Display for DispenserStatus {
@@ -42,11 +44,12 @@ pub struct ApplicationState {
     pub last_error_msg: Option<String>,
     pub last_error_time: Option<String>,
     pub last_step_index: Option<u32>,
-    pub motor: Arc<Box<dyn StepperMotor + Send + Sync>>,
+    pub motor: Arc<Box<dyn AsyncStepperMotor + Send + Sync>>,
     pub app_config: AppConfig,
     pub version: String,
     pub power_monitor: Option<Arc<Mutex<power_monitor::PowerMonitor>>>,
     pub power_readings_tx: Sender<PowerReading>,
+    pub motor_cancel_token: Option<CancellationToken>,
 }
 
 impl ApplicationState {
@@ -106,6 +109,7 @@ impl ApplicationState {
             version,
             power_monitor,
             power_readings_tx: power_tx,
+            motor_cancel_token: None,
         }
     }
 }
@@ -113,7 +117,7 @@ impl ApplicationState {
 fn init_motor(
     motor_type: String,
     config: AppConfig,
-) -> Result<Box<dyn StepperMotor + Send + Sync>, String> {
+) -> Result<Box<dyn AsyncStepperMotor + Send + Sync>, String> {
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
         "StepperNema14" => {
