@@ -93,7 +93,6 @@ impl PowerMonitor {
         let bus_voltage = self.get_bus_voltage()?;
         let current = self.get_current_amps()?;
         let power = bus_voltage * current;
-        //debug!("Power reading: {} V, {} A, {} W", bus_voltage, current, power);
 
         Ok(PowerReading {
             bus_voltage_volts: bus_voltage,
