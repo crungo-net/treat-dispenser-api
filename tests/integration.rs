@@ -55,8 +55,21 @@ async fn start_server() -> SocketAddr {
     addr
 }
 
+async fn login(client: &Client, addr: SocketAddr, username: &str, password: &str) -> treat_dispenser_api::services::auth::LoginResponse {
+    let url = format!("http://{}/login", addr);
+    let req = client.post(&url);
+    let req = req.json(&serde_json::json!({
+        "username": username,
+        "password": password
+    }));
+    let response = req.send().await.unwrap();
+    // deserialize the response to get the token (LoginResponse)
+    response.json::<treat_dispenser_api::services::auth::LoginResponse>().await.unwrap()
+}
+
 async fn get_with_auth(client: &Client, addr: SocketAddr, path: &str) -> reqwest::Response {
-    let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
+    let login_response = login(client, addr, "admin", "password").await;
+    let token = login_response.token;
     let url = format!("http://{}{}", addr, path);
     let req = client.get(&url);
     let req = req.header("Authorization", format!("Bearer {}", token));
@@ -64,7 +77,8 @@ async fn get_with_auth(client: &Client, addr: SocketAddr, path: &str) -> reqwest
 }
 
 async fn post_with_auth(client: &Client, addr: SocketAddr, path: &str) -> reqwest::Response {
-    let token = std::env::var("DISPENSER_API_TOKEN").unwrap_or_else(|_| "supersecret".to_string());
+    let login_response = login(client, addr, "admin", "password").await;
+    let token = login_response.token;
     let url = format!("http://{}{}", addr, path);
     let req = client.post(&url);
     let req = req.header("Authorization", format!("Bearer {}", token));

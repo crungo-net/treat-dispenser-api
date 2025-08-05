@@ -12,8 +12,8 @@ pub struct LoginRequest {
 
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
-    token: String,
-    expires_at: u64,
+    pub token: String,
+    pub expires_at: u64,
 }
 
 #[derive(Serialize, Deserialize)]
