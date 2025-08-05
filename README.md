@@ -325,6 +325,7 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
     - `dispenser.rs` – Treat dispensing logic
     - `status.rs` – Status and health check logic
     - `auth.rs` – Authentication and JWT logic
+    - `power_monitor.rs` – Power monitoring logic for INA219 sensor
 
 - `src/routes/` – API route handlers (HTTP endpoints)
     - `mod.rs` – Exports route modules
@@ -338,7 +339,7 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 
 - `src/sensors/` – Sensor integration
     - `mod.rs` – Exports sensor modules
-    - `power_monitor.rs` – INA219 power/current/voltage monitoring
+    - `ina219.rs` – INA219 power/current/voltage monitoring via I2C
 
 - `src/utils/` – Utility functions and helpers
     - `mod.rs` – Exports utility modules
@@ -354,11 +355,18 @@ This structure separates business logic, hardware integration, HTTP interface, s
 The API supports real-time power, voltage, and current monitoring using the INA219 sensor via I2C:
 
 - **INA219 Integration:**
-  - Implemented in `src/sensors/power_monitor.rs`
+  - Implemented in `src/sensors/ina219.rs` and exposed via `src/sensors/mod.rs`.
   - Uses the [`ina219`](https://crates.io/crates/ina219) crate and `linux-embedded-hal` for I2C communication.
   - Initializes the sensor on `/dev/i2c-1` (default address `0x40`).
   - Calibrates for 1A resolution and 0.1Ω shunt resistor (configurable in code).
   - Provides bus voltage, current, and calculated power readings.
+
+- **Power Monitoring Logic:**
+  - The `PowerMonitor` struct in `src/services/power_monitor.rs` collects and averages power readings.
+  - The monitoring thread is started by calling `start_power_monitoring_thread` (now located in `src/services/power_monitor.rs`).
+  - The thread polls the INA219 sensor every 100ms, adds readings to the monitor, and publishes them to the application state via a broadcast channel.
+  - If the average current exceeds a threshold (default: 0.7A), the thread will log a warning and cancel ongoing motor operations for safety.
+  - Readings are periodically cleared to avoid unbounded memory growth.
 
 - **API Exposure:**
   - Power readings are published to the application state and exposed via the `/status` endpoint.
@@ -367,10 +375,6 @@ The API supports real-time power, voltage, and current monitoring using the INA2
     - `motor_current_amps`
     - `motor_power_watts`
   - If the sensor is unavailable, dummy values are returned and errors are logged.
-
-- **Threaded Monitoring:**
-  - A background thread periodically samples the INA219 and updates readings (see `start_power_monitoring_thread` in `src/lib.rs`).
-  - Readings are sent via a channel to the status service.
 
 - **Error Handling:**
   - Initialization and read errors are logged.
@@ -384,7 +388,7 @@ power_monitor:
   shunt_ohms: 0.1
   calibration_amps: 1.0
 ```
-*(Note: Actual config is currently hardcoded; see `power_monitor.rs` for details.)*
+*(Note: Actual config is currently hardcoded; see `ina219.rs` and `power_monitor.rs` for details.)*
 
 ## Testing
 
