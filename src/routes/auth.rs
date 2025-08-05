@@ -8,11 +8,10 @@ use tracing::info;
 use crate::error::ApiError;
 
 pub async fn login(
-    State(_app_state): State<application_state::AppStateMutex>,
+    State(app_state): State<application_state::AppStateMutex>,
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, ApiError> {
-
-    let result = handle_login(payload.clone()).await;
+    let result = handle_login(app_state, payload.clone()).await;
     match result {
         Ok(response) => {
             info!("Login successful for user: {}", &payload.username);

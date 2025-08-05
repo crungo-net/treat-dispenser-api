@@ -71,7 +71,9 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
 
     return (
         app_state.clone(),
-        merged_routes.with_state(app_state).layer(cors).layer(
+        merged_routes.with_state(app_state)
+        .layer(cors)
+        .layer(
             TraceLayer::new_for_http()
                 .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)) // log http failures at WARN level
                 .make_span_with(|request: &Request<_>| {
@@ -186,6 +188,8 @@ pub struct AppConfig {
     pub api: ApiConfig,
     pub nema14: Option<crate::motor::stepper_nema14::Nema14Config>,
     pub motor_cooldown_ms: u64,
+    pub admin_user: String,
+    pub admin_password: String,
 }
 
 pub fn load_app_config_from_str(config_str: &str) -> AppConfig {

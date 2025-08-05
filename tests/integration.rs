@@ -36,6 +36,8 @@ async fn start_server() -> SocketAddr {
     api:
       listen_address: "127.0.0.1:0"
     motor_cooldown_ms: 5000
+    admin_user: "admin"
+    admin_password: "password"
     "#;
 
     let config = treat_dispenser_api::load_app_config_from_str(config_str);

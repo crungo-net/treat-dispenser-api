@@ -1,4 +1,4 @@
-use crate::error::ApiError;
+use crate::{error::ApiError};
 use axum::{
     extract::Request,
     http::{self, HeaderValue},
@@ -7,7 +7,7 @@ use axum::{
 };
 use futures::future::BoxFuture;
 use jsonwebtoken::{decode, DecodingKey, Validation};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::services::auth::Claims;
 
@@ -67,19 +67,21 @@ pub async fn token_auth_middleware(
                 None
             }
         });
+
+    let jwt_secret = std::env::var("DISPENSER_JWT_SECRET").unwrap_or("supersecret".to_string());
     
     if let Some(token) = auth_header {
         // Validate token
         match decode::<Claims>(
             &token,
-            &DecodingKey::from_secret("supersecret".as_ref()),
+            &DecodingKey::from_secret(jwt_secret.as_ref()),
             &Validation::default(),
         ) {
             Ok(_) => Ok(next.run(request).await),
             Err(_) => Err(ApiError::Unauthorized),
         }
     } else {
-        error!("Authorization header missing or malformed");
+        warn!("Authorization header missing or malformed");
         Err(ApiError::Unauthorized)
     }
 }
