@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 pub struct StepperNema14 {
     config: Nema14Config,
@@ -176,7 +176,7 @@ impl AsyncStepperMotor for StepperNema14 {
 
                 for _step in 0..steps {
                     if cancel_token.is_cancelled() {
-                        info!("Motor run cancelled");
+                        info!("Received cancellation request, stopping motor operation.");
                         return Err("Motor run cancelled".to_string());
                     }
 
