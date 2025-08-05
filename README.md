@@ -81,40 +81,52 @@ To upgrade, simply install the new `.deb` package with `dpkg -i` as above. Your 
 
 The application uses a multi-layered approach to configuration:
 
-1. **Environment Variables**: Basic configuration is loaded from environment variables or a `.env` file (see [Environment Variables](#environment-variables) section).
+1. **Environment Variables**:  
+   Basic configuration is loaded from environment variables or a `.env` file.  
+   - `DISPENSER_JWT_SECRET`: Secret key for signing JWT tokens. Default: `supersecret` (change in production!).
+   - `MOTOR_TYPE`: Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`). Default: `Stepper28BYJ48`.
+   - `RUST_LOG`: Log level (`trace`, `debug`, `info`, `warn`, `error`). Default: `info`.
 
-2. **Application Config**: The `AppConfig` struct centralizes configuration settings:
-   - `api`: API server configuration (listen address)
-   - `nema14`: Optional NEMA-14 specific settings
-   - `motor_cooldown_ms`: Cooldown period after dispensing
+2. **Configuration File**:  
+   The main configuration file is expected at `/etc/treat-dispenser-api/config.yaml` (when using the `.deb` package).  
+   This file contains structured settings for the API, motor, and admin credentials.
 
-Example YAML configuration:
-```yaml
-api:
-  listen_address: 0.0.0.0:3500
-nema14:
-  dir_pin: 23
-  step_pin: 19
-  sleep_pin: 13
-  reset_pin: 6
-  enable_pin: 17
-motor_cooldown_ms: 5000
-```
+   **Example `/etc/treat-dispenser-api/config.yaml`:**
+   ```yaml
+   api:
+     listen_address: 0.0.0.0:3500
+   nema14:
+     dir_pin: 23
+     step_pin: 19
+     sleep_pin: 13
+     reset_pin: 6
+     enable_pin: 17
+   motor_cooldown_ms: 5000
+   admin_user: admin
+   admin_password: admin123
+   ```
 
-This configuration structure makes the application more maintainable as it grows, and allows for easier testing with custom configurations.
+   - `admin_user`: Default admin username (change in production!)
+   - `admin_password`: Default admin password (change in production!)
+
+3. **Application Config**:  
+   The `AppConfig` struct centralizes configuration settings loaded from the config file and environment variables.
+
+**Note:**  
+- If you install via the `.deb` package, the config file must be placed at `/etc/treat-dispenser-api/config.yaml`.
+- The default admin credentials are for development only. Always change these for production deployments.
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DISPENSER_API_TOKEN` | Authentication token for API access | (Required) |
-| `RUST_LOG` | Log level (trace, debug, info, warn, error) | `info` |
-| `MOTOR_TYPE` | Type of motor to use (Stepper28BYJ48, StepperNema14, StepperMock) | `Stepper28BYJ48` |
+| Variable              | Description                                 | Default         |
+|----------------------|---------------------------------------------|-----------------|
+| `DISPENSER_JWT_SECRET` | Secret key for signing JWT tokens           | `supersecret`   |
+| `RUST_LOG`           | Log level (`trace`, `debug`, `info`, `warn`, `error`) | `info`          |
+| `MOTOR_TYPE`         | Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`) | `Stepper28BYJ48` |
 
 Example `.env` file:
 ```
-DISPENSER_API_TOKEN=your_secret_token
-DISPENSER_API_PORT=3500
+DISPENSER_JWT_SECRET=your_jwt_secret
 RUST_LOG=info
 MOTOR_TYPE=Stepper28BYJ48
 ```
@@ -216,6 +228,37 @@ curl http://localhost:3500/status
 
 _Response:_ JSON object containing system status information.
 
+---
+
+### `POST /login`
+
+Authenticates a user and returns a JWT token for use with protected endpoints.
+
+**Request Body:**
+```json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+**Example:**
+```sh
+curl -X POST http://localhost:3500/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}'
+```
+
+**Response:**
+```json
+{
+  "token": "<JWT_TOKEN>",
+  "expires_at": 1725580800
+}
+```
+
+- Use the returned JWT token in the `Authorization` header as `Bearer <JWT_TOKEN>` for all protected endpoints (e.g., `/dispense`, `/cancel`).
+- The default credentials are set in the config file (`admin_user`, `admin_password`). Change these for production.
 
 ## Hardware Integration
 
@@ -268,27 +311,35 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 
 - `src/main.rs` – Application entry point, sets up routes, logging, server, and power monitoring thread.
 - `src/lib.rs` – Library exports, app factory, and power monitoring thread starter.
-- `src/application_state.rs` – Centralized application state.
-- `src/error.rs` – Error handling and HTTP response mapping.
+- `src/application_state.rs` – Centralized application state and initialization logic.
+- `src/error.rs` – Error types and HTTP response mapping.
+
 - `src/motor/` – Stepper motor trait, real and mock implementations, and motor selection logic.
     - `mod.rs` – Motor trait and module exports
     - `stepper_28byj48.rs` – 28BYJ-48 motor implementation for ULN2003 driver
     - `stepper_nema14.rs` – NEMA-14 motor implementation for A4988 driver
     - `stepper_mock.rs` – Mock motor for testing and fallback
-- `src/services/` – Business logic layer (hardware control, treat dispensing, status, etc.)
+
+- `src/services/` – Business logic layer (hardware control, treat dispensing, status, authentication, etc.)
     - `mod.rs` – Exports service modules
     - `dispenser.rs` – Treat dispensing logic
     - `status.rs` – Status and health check logic
+    - `auth.rs` – Authentication and JWT logic
+
 - `src/routes/` – API route handlers (HTTP endpoints)
     - `mod.rs` – Exports route modules
     - `dispense.rs` – Dispense endpoint handler
     - `status.rs` – Status endpoint handler
+    - `auth.rs` – Login endpoint handler
+
 - `src/middleware/` – API middleware (e.g., authentication)
     - `mod.rs` – Exports middleware modules
     - `auth.rs` – Authentication middleware
+
 - `src/sensors/` – Sensor integration
     - `mod.rs` – Exports sensor modules
     - `power_monitor.rs` – INA219 power/current/voltage monitoring
+
 - `src/utils/` – Utility functions and helpers
     - `mod.rs` – Exports utility modules
     - `datetime.rs` – Date/time formatting utilities
