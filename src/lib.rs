@@ -55,22 +55,25 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
         ])
         .allow_headers(Any);
 
-    let auth_middleware = create_auth_middleware();
+    let _auth_middleware = create_auth_middleware();
 
     let public_routes = Router::new()
         .route("/", get(routes::root))
+        .route("/login", post(routes::auth::login))
         .route("/status", get(routes::status::detailed_health));
 
     let protected_routes = Router::new()
         .route("/dispense", post(routes::dispense::dispense_treat))
         .route("/cancel", post(routes::dispense::cancel_dispense))
-        .layer(axum::middleware::from_fn(auth_middleware));
+        .layer(axum::middleware::from_fn(middleware::auth::token_auth_middleware));
 
     let merged_routes = public_routes.merge(protected_routes);
 
     return (
         app_state.clone(),
-        merged_routes.with_state(app_state).layer(cors).layer(
+        merged_routes.with_state(app_state)
+        .layer(cors)
+        .layer(
             TraceLayer::new_for_http()
                 .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)) // log http failures at WARN level
                 .make_span_with(|request: &Request<_>| {
@@ -185,6 +188,8 @@ pub struct AppConfig {
     pub api: ApiConfig,
     pub nema14: Option<crate::motor::stepper_nema14::Nema14Config>,
     pub motor_cooldown_ms: u64,
+    pub admin_user: String,
+    pub admin_password: String,
 }
 
 pub fn load_app_config_from_str(config_str: &str) -> AppConfig {

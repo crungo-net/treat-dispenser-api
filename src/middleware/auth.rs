@@ -1,4 +1,4 @@
-use crate::error::ApiError;
+use crate::{error::ApiError};
 use axum::{
     extract::Request,
     http::{self, HeaderValue},
@@ -6,7 +6,10 @@ use axum::{
     response::Response,
 };
 use futures::future::BoxFuture;
-use tracing::error;
+use jsonwebtoken::{decode, DecodingKey, Validation};
+use tracing::{error, warn};
+
+use crate::services::auth::Claims;
 
 /// Returns a middleware function that checks for the presence of a valid API token in the request headers.
 /// If the token is valid, it allows the request to proceed; otherwise, it returns an `Unauthorized` error.
@@ -46,5 +49,39 @@ pub fn create_auth_middleware()
             }
             Err(ApiError::Unauthorized)
         })
+    }
+}
+
+pub async fn token_auth_middleware(
+    request: Request,
+    next: Next,
+) -> Result<Response, ApiError> {
+    // Extract token from Authorization header
+    let auth_header: Option<String> =
+        request.headers().get(http::header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|auth_value| {
+            if auth_value.starts_with("Bearer ") {
+                Some(auth_value[7..].to_string())
+            } else {
+                None
+            }
+        });
+
+    let jwt_secret = std::env::var("DISPENSER_JWT_SECRET").unwrap_or("supersecret".to_string());
+    
+    if let Some(token) = auth_header {
+        // Validate token
+        match decode::<Claims>(
+            &token,
+            &DecodingKey::from_secret(jwt_secret.as_ref()),
+            &Validation::default(),
+        ) {
+            Ok(_) => Ok(next.run(request).await),
+            Err(_) => Err(ApiError::Unauthorized),
+        }
+    } else {
+        warn!("Authorization header missing or malformed");
+        Err(ApiError::Unauthorized)
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "treat-dispenser-api"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2024"
 
 
@@ -43,6 +43,7 @@ anyhow = "1.0.98"
 futures = "0.3.31"
 async-trait = "0.1.88"
 tokio-util = { version = "0.7.16"}
+jsonwebtoken = "9.3.1"
 
 
 [dev-dependencies]
