@@ -5,6 +5,7 @@ use ina219::calibration::MicroAmpere;
 use linux_embedded_hal::I2cdev;
 use tracing::{debug, error, info};
 use crate::sensors::PowerReading;
+use crate::sensors::PowerSensor;
 
 fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, String> {
     info!("Initializing INA219 sensor");
@@ -73,7 +74,10 @@ impl SensorIna219 {
         Ok(current.0 as f32 / 1000.0) // Convert ma to a
     }
 
-    pub fn get_power_reading(&mut self) -> Result<PowerReading, String> {
+}
+
+impl PowerSensor for SensorIna219 {
+    fn get_power_reading(&mut self) -> Result<PowerReading, String> {
         let bus_voltage = self.get_bus_voltage()?;
         let current = self.get_current_amps()?;
         let power = bus_voltage * current;

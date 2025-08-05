@@ -13,8 +13,8 @@ use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
-use crate::sensors::ina219;
 use crate::sensors::PowerReading;
+use crate::sensors::PowerSensor;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -48,7 +48,7 @@ pub struct ApplicationState {
     pub motor: Arc<Box<dyn AsyncStepperMotor + Send + Sync>>,
     pub app_config: AppConfig,
     pub version: String,
-    pub power_sensor_mutex: Option<Arc<Mutex<ina219::SensorIna219>>>,
+    pub power_sensor_mutex: Option<Arc<Mutex<Box<dyn PowerSensor>>>>,
     pub power_readings_tx: Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
 }
@@ -75,13 +75,21 @@ impl ApplicationState {
             }
         };
 
+        let power_sensor_env = std::env::var("POWER_SENSOR")
+            .unwrap_or_else(|_| "SensorINA219".to_string());
+        let power_sensor_mutex = match init_power_sensor(power_sensor_env, &app_config) {
+            Ok(sensor) => Some(Arc::new(Mutex::new(sensor))),
+            Err(e) => {
+                error!("Failed to initialize power sensor: {}", e);
+                None
+            }
+        };
+
         let (power_readings_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
-        let mut power_sensor_mutex = None;
 
         let gpio = match Gpio::new() {
             Ok(gpio) => {
                 info!("GPIO initialized successfully");
-                power_sensor_mutex = Some(Arc::new(Mutex::new(ina219::SensorIna219::new())));
                 Some(gpio)
             }
             Err(e) => {
@@ -113,6 +121,17 @@ impl ApplicationState {
             motor_cancel_token: None,
         }
     }
+}
+
+fn init_power_sensor(
+    sensor_name: String,
+    _app_config: &AppConfig,
+) -> Result<Box<dyn PowerSensor>, String> {
+    match sensor_name.as_str() {
+        "SensorINA219" => return Ok(Box::new(crate::sensors::sensor_ina219::SensorIna219::new())),
+        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())), 
+        _ => return Err(format!("Unsupported power sensor type '{}'", sensor_name)),
+    };
 }
 
 fn init_motor(

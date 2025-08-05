@@ -1,4 +1,5 @@
-pub mod ina219;
+pub mod sensor_ina219;
+pub mod sensor_mock;
 
 #[derive(Clone, Debug)]
 pub struct PowerReading {
@@ -15,4 +16,8 @@ impl PowerReading {
             power_watts: -1.0,
         }
     }
+}
+
+pub trait PowerSensor: Send + Sync {
+    fn get_power_reading(&mut self) -> Result<PowerReading, String>;
 }
