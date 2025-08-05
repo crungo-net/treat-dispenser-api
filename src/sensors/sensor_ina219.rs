@@ -77,6 +77,10 @@ impl SensorIna219 {
 }
 
 impl PowerSensor for SensorIna219 {
+    fn get_name(&self) -> String {
+        "SensorINA219".to_string()
+    }
+
     fn get_power_reading(&mut self) -> Result<PowerReading, String> {
         let bus_voltage = self.get_bus_voltage()?;
         let current = self.get_current_amps()?;

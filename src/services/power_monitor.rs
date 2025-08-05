@@ -85,6 +85,7 @@ pub async fn start_power_monitoring_thread(
                         match power_reading_result {
                             Ok(power_reading) => {
                                 // publish the power reading to the channel
+                                info!("Power reading: {:?}", power_reading);
                                 power_monitor.add_reading(power_reading.clone());
                                 let _ = power_readings_tx.send(power_reading);
                             }

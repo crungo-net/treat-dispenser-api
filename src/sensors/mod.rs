@@ -19,5 +19,6 @@ impl PowerReading {
 }
 
 pub trait PowerSensor: Send + Sync {
+    fn get_name(&self) -> String;
     fn get_power_reading(&mut self) -> Result<PowerReading, String>;
 }

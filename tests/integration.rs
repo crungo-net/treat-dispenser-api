@@ -1,16 +1,20 @@
 use reqwest::Client;
 use std::net::SocketAddr;
 use std::sync::Once;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use tokio::net::TcpListener;
+use treat_dispenser_api::application_state::ApplicationState;
 use treat_dispenser_api::build_app;
 use treat_dispenser_api::services::status::StatusResponse;
+use treat_dispenser_api::services::power_monitor::start_power_monitoring_thread;
 
-async fn setup() -> (SocketAddr, Client) {
+async fn setup() -> (SocketAddr, Client , Arc<Mutex<ApplicationState>>) {
     dotenv::from_filename(".env.test").ok();
-    let addr = start_server().await;
+    let (addr, app_state) = start_server().await;
     wait_for_server(100).await;
     init_logging();
-    (addr, Client::new())
+    (addr, Client::new(), app_state)
 }
 
 static INIT: Once = Once::new();
@@ -31,7 +35,7 @@ async fn wait_for_server(millis: u64) {
     tokio::time::sleep(tokio::time::Duration::from_millis(millis)).await;
 }
 
-async fn start_server() -> SocketAddr {
+async fn start_server() -> (SocketAddr, Arc<Mutex<ApplicationState>>) {
     let config_str = r#"
     api:
       listen_address: "127.0.0.1:0"
@@ -41,7 +45,7 @@ async fn start_server() -> SocketAddr {
     "#;
 
     let config = treat_dispenser_api::load_app_config_from_str(config_str);
-    let (_, app) = build_app(config.clone());
+    let (_app_state, app) = build_app(config.clone());
     let listener = TcpListener::bind(config.api.listen_address).await.unwrap();
     let addr = listener.local_addr().unwrap();
 
@@ -54,7 +58,7 @@ async fn start_server() -> SocketAddr {
         .unwrap();
     });
 
-    addr
+    (addr, _app_state)
 }
 
 async fn login(
@@ -107,14 +111,14 @@ async fn get_hardware_status(client: &Client, addr: SocketAddr) -> StatusRespons
 
 #[tokio::test]
 async fn test_root_endpoint() {
-    let (addr, client) = setup().await;
+    let (addr, client, _) = setup().await;
     let response = get_with_auth(&client, addr, "/").await;
     assert!(response.status().is_success());
 }
 
 #[tokio::test]
 async fn test_status_endpoint() {
-    let (addr, client) = setup().await;
+    let (addr, client, _) = setup().await;
     wait_for_server(5000).await; // Wait for server to be ready
 
     let response = get_with_auth(&client, addr, "/status").await;
@@ -134,14 +138,35 @@ async fn test_status_endpoint() {
     assert!(status_json.last_error_time.is_none());
     assert_eq!(status_json.version, env!("CARGO_PKG_VERSION"));
     assert_eq!(status_json.motor, "StepperMock");
+
+    // since no real power sensor is connected, and the power monitoring thread is not started in this test
+    // the power readings should be the dummy values
     assert_eq!(status_json.motor_voltage_volts, Some(-1.0));
     assert_eq!(status_json.motor_current_amps, Some(-1.0));
     assert_eq!(status_json.motor_power_watts, Some(-1.0));
+    assert_eq!(status_json.motor_power_sensor, "SensorMock");
+}
+
+#[tokio::test]
+async fn test_power_monitoring_thread() {
+    let (addr, client, app_state) = setup().await;
+    start_power_monitoring_thread(app_state).await;
+    wait_for_server(5000).await; // Wait for server to be ready
+
+    let response = get_with_auth(&client, addr, "/status").await;
+    assert!(response.status().is_success());
+
+    let status_json = response.json::<StatusResponse>().await.unwrap();
+
+    assert_eq!(status_json.motor_voltage_volts, Some(12.0));
+    assert_eq!(status_json.motor_current_amps, Some(0.6));
+    assert_eq!(status_json.motor_power_watts, Some(0.5));
+    assert_eq!(status_json.motor_power_sensor, "SensorMock");
 }
 
 #[tokio::test]
 async fn test_dispense_endpoint_unauthorized() {
-    let (addr, client) = setup().await;
+    let (addr, client, _) = setup().await;
     let req = client.post(format!("http://{}/dispense", addr));
     let response = req.send().await.unwrap();
     assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
@@ -149,7 +174,7 @@ async fn test_dispense_endpoint_unauthorized() {
 
 #[tokio::test]
 async fn test_dispense_endpoint_authorized() {
-    let (addr, client) = setup().await;
+    let (addr, client, _) = setup().await;
     let response = post_with_auth(&client, addr, "/dispense").await;
 
     let health_status = get_hardware_status(&client, addr).await;
@@ -167,7 +192,7 @@ async fn test_dispense_endpoint_authorized() {
 
 #[tokio::test]
 async fn test_dispense_endpoint_busy_response() {
-    let (addr, client) = setup().await;
+    let (addr, client, _) = setup().await;
     let _ = post_with_auth(&client, addr, "/dispense").await;
     let response = post_with_auth(&client, addr, "/dispense").await;
 
@@ -196,7 +221,7 @@ async fn test_dispense_endpoint_busy_response() {
 
 #[tokio::test]
 async fn test_cancel_dispense_endpoint() {
-    let (addr, client) = setup().await;
+    let (addr, client, _) = setup().await;
     let response = post_with_auth(&client, addr, "/dispense").await;
 
     assert!(

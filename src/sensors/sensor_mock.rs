@@ -4,6 +4,9 @@ use crate::sensors::PowerReading;
 pub struct SensorMock {}
 
 impl PowerSensor for SensorMock {
+    fn get_name(&self) -> String {
+        "SensorMock".to_string()
+    }
 
     fn get_power_reading(&mut self) -> Result<PowerReading, String> {
         // Return a dummy power reading for testing purposes

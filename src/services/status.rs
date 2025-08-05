@@ -21,6 +21,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
         version,
         motor_name,
         mut power_readings_rx,
+        motor_power_sensor_mutex,
     ) = {
         let state_guard = state.lock().await;
 
@@ -34,6 +35,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
             state_guard.version.clone(),
             state_guard.motor.get_name().clone(),
             state_guard.power_readings_tx.subscribe(),
+            state_guard.power_sensor_mutex.clone(),
         )
     }; // lock is dropped here
 
@@ -55,6 +57,11 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
                 PowerReading::dummy()
             }
         };
+    
+    let power_sensor_name = match motor_power_sensor_mutex {
+        Some(sensor) => sensor.lock().await.get_name(),
+        None => "No Power Sensor".to_string(),
+    };
 
     StatusResponse {
         gpio_available,
@@ -67,6 +74,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
         dispenser_status,
         version,
         motor: motor_name,
+        motor_power_sensor: power_sensor_name.to_string(),
         motor_voltage_volts: Some(power_reading.bus_voltage_volts),
         motor_current_amps: Some(power_reading.current_amps),
         motor_power_watts: Some(power_reading.power_watts),
@@ -85,6 +93,7 @@ pub struct StatusResponse {
     pub last_error_time: Option<String>,
     pub version: String,
     pub motor: String,
+    pub motor_power_sensor: String,
     pub motor_voltage_volts: Option<f32>,
     pub motor_current_amps: Option<f32>,
     pub motor_power_watts: Option<f32>,
