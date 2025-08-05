@@ -9,7 +9,7 @@ pub mod utils;
 
 use axum::extract::ConnectInfo;
 use axum::http::{Method, Request, StatusCode};
-use axum::{Router, routing::get};
+use axum::{Router, routing::get, routing::post};
 use serde_yaml;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -62,8 +62,8 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
         .route("/status", get(routes::status::detailed_health));
 
     let protected_routes = Router::new()
-        .route("/dispense", get(routes::dispense::dispense_treat))
-        .route("/cancel", get(routes::dispense::cancel_dispense))
+        .route("/dispense",post(routes::dispense::dispense_treat))
+        .route("/cancel",post(routes::dispense::cancel_dispense))
         .layer(axum::middleware::from_fn(auth_middleware));
 
     let merged_routes = public_routes.merge(protected_routes);

@@ -169,7 +169,7 @@ Treat dispenser is online! Binky time!
 
 ---
 
-### `GET /dispense`
+### `POST /dispense`
 
 Dispenses a treat.  
 **Requires** an `Authorization` header with a bearer token.
@@ -182,6 +182,26 @@ curl -H "Authorization: Bearer <YOUR_TOKEN>" http://localhost:3500/dispense
 _Response:_
 - `Dispensing started, please wait...` on success
 - Error message with appropriate status code on failure
+
+---
+
+### `POST /cancel`
+
+Cancels an ongoing dispensing operation.  
+**Requires** an `Authorization` header with a bearer token.
+
+**Example:**
+```sh
+curl -H "Authorization: Bearer <YOUR_TOKEN>" http://localhost:3500/cancel
+```
+
+_Response:_
+- `Dispensing cancelled successfully.` on success
+- Error message with appropriate status code if there is no active dispensing operation
+
+**Notes:**
+- If dispensing is in progress, this endpoint will immediately stop the motor and set the dispenser status to `Cancelled`.
+- If no dispensing is active, an error is returned.
 
 ---
 
