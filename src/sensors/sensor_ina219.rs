@@ -3,7 +3,7 @@ use ina219::address::Address;
 use ina219::calibration::IntCalibration;
 use ina219::calibration::MicroAmpere;
 use linux_embedded_hal::I2cdev;
-use tracing::{debug, error, info};
+use tracing::{debug, error, warn, info};
 use crate::sensors::PowerReading;
 use crate::sensors::PowerSensor;
 
@@ -71,7 +71,12 @@ impl SensorIna219 {
             .ina219
             .current_raw()
             .map_err(|e| format!("Failed to read current: {}", e))?;
-        Ok(current.0 as f32 / 1000.0) // Convert ma to a
+
+        let current_amps = current.0 as f32 / 1000.0; // Convert mA to A
+        if current_amps > 2.0 {
+            warn!("Current reading is unrealistic: {} A", current_amps);
+        }
+        Ok(current_amps.clamp(0.0, 2.0)) // clamped to realistic range
     }
 
 }
