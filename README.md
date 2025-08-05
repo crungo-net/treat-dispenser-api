@@ -358,7 +358,7 @@ This structure separates business logic, hardware integration, HTTP interface, s
 The API supports real-time power, voltage, and current monitoring using the INA219 sensor via I2C:
 
 - **INA219 Integration:**
-  - Implemented in `src/sensors/ina219.rs` and exposed via `src/sensors/mod.rs`.
+  - Implemented in `src/sensors/sensor_ina219.rs` and exposed via `src/sensors/mod.rs`.
   - Uses the [`ina219`](https://crates.io/crates/ina219) crate and `linux-embedded-hal` for I2C communication.
   - Initializes the sensor on `/dev/i2c-1` (default address `0x40`).
   - Calibrates for 1A resolution and 0.1Ω shunt resistor (configurable in code).
