@@ -5,7 +5,7 @@ use ina219::calibration::MicroAmpere;
 use linux_embedded_hal::I2cdev;
 use tracing::{debug, error, info};
 
-pub fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, String> {
+fn init_ina219_sensor() -> Result<SyncIna219<I2cdev, Option<IntCalibration>>, String> {
     info!("Initializing INA219 sensor");
 
     // Initialize the I2C device
@@ -60,17 +60,17 @@ impl PowerReading {
     }
 }
 
-pub struct PowerMonitor {
+pub struct SensorIna219 {
     ina219: SyncIna219<I2cdev, Option<IntCalibration>>,
 }
 
-impl PowerMonitor {
+impl SensorIna219 {
     pub fn new() -> Self {
         let ina219 = init_ina219_sensor().unwrap_or_else(|e| {
             error!("Failed to initialize INA219 sensor: {}", e);
             panic!("INA219 sensor initialization failed");
         });
-        PowerMonitor { ina219 }
+        SensorIna219 { ina219 }
     }
 
     pub fn get_bus_voltage(&mut self) -> Result<f32, String> {

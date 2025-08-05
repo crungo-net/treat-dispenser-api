@@ -13,7 +13,7 @@ use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
 use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
-use crate::sensors::power_monitor::{self, PowerReading};
+use crate::sensors::ina219::{self, PowerReading};
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -47,7 +47,7 @@ pub struct ApplicationState {
     pub motor: Arc<Box<dyn AsyncStepperMotor + Send + Sync>>,
     pub app_config: AppConfig,
     pub version: String,
-    pub power_monitor: Option<Arc<Mutex<power_monitor::PowerMonitor>>>,
+    pub current_sensor: Option<Arc<Mutex<ina219::SensorIna219>>>,
     pub power_readings_tx: Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
 }
@@ -75,12 +75,12 @@ impl ApplicationState {
         };
 
         let (power_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
-        let mut power_monitor = None;
+        let mut current_sensor = None;
 
         let gpio = match Gpio::new() {
             Ok(gpio) => {
                 info!("GPIO initialized successfully");
-                power_monitor = Some(Arc::new(Mutex::new(power_monitor::PowerMonitor::new())));
+                current_sensor = Some(Arc::new(Mutex::new(ina219::SensorIna219::new())));
                 Some(gpio)
             }
             Err(e) => {
@@ -107,7 +107,7 @@ impl ApplicationState {
             motor,
             app_config,
             version,
-            power_monitor,
+            current_sensor,
             power_readings_tx: power_tx,
             motor_cancel_token: None,
         }
