@@ -10,3 +10,6 @@ motor_cooldown_ms: 5000
 #  sleep_pin: 13
 #  reset_pin: 6
 #  enable_pin: 17
+
+admin_user: "admin"
+admin_password: "admin"

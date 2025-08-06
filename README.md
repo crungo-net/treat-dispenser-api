@@ -4,13 +4,30 @@ A simple REST API for controlling a treat dispenser, built with [Axum](https://g
 
 ## Features
 
-- **Dispense treats** via a REST endpoint
-- **Authorization** using a bearer token
-- **Structured logging** with [`tracing`](https://docs.rs/tracing/)
-- **Thread ID tracking** in logs
-- **Hardware integration** with GPIO control for stepper motors
-- **Graceful shutdown** support
-- **Docker support** for containerized deployment
+- **One-click treat dispensing:** Trigger treat dispensing remotely via a simple REST API call.
+- **Secure access with JWT authentication:** Only authorized users can dispense treats or access sensitive endpoints.
+- **Real-time status monitoring:** Instantly check dispenser health, motor status, and uptime from any device.
+- **Live power and current monitoring:** View live voltage, current, and power usage for hardware safety and diagnostics.
+- **Automatic jam and error detection:** The system detects jams, high current, and hardware errors, and can cancel operations to protect the device.
+- **Supports multiple stepper motors:** Easily switch between 28BYJ-48, NEMA-14, or mock motors for testing or different hardware setups.
+- **Configurable cooldown and safety limits:** Prevents overheating and hardware damage with customizable cooldowns and current limits.
+- **Easy setup and deployment:** Pre-built Debian packages, Docker support, and simple configuration for Raspberry Pi and other Linux devices.
+- **Structured logging and diagnostics:** All actions and errors are logged for easy troubleshooting and auditability.
+- **Web and mobile friendly:** Designed for integration with web frontends, mobile apps, or home automation systems.
+
+## 3D Printing
+
+STL files for 3D printing the dispenser hardware are available in the `3d_printing` folder of this repository. These models are heavily modified and based on the original pellet dispenser designs by [jackpkenn](https://github.com/jackpkenn/PelletDispenser/tree/master). Please review and adapt as needed for your hardware setup.
+
+## Hardware Requirements
+
+This project is designed to work with the following hardware:
+
+- **NEMA14 stepper motor** (with A4988 or compatible driver)
+- **INA219 sensor** (for current, voltage, and power monitoring via I2C)
+- **Raspberry Pi** (recommended), or any microcontroller or single-board computer with GPIO and I2C support
+
+Other stepper motors and sensors may be supported with code modifications (see the Hardware Integration section). Ensure your hardware is compatible with the provided 3D printed parts.
 
 ## Quick Setup
 
@@ -20,15 +37,6 @@ For a quick development environment setup, run:
 chmod +x setup_dev_env.sh
 ./setup_dev_env.sh
 ```
-
-## Requirements
-
-- Rust (edition 2021 or later)
-- [Axum](https://github.com/tokio-rs/axum)
-- [tokio](https://tokio.rs/)
-- [tracing](https://docs.rs/tracing/)
-- [rppal](https://docs.rs/rppal/) for Raspberry Pi GPIO control
-- [dotenv](https://docs.rs/dotenv/)
 
 ## Installation
 
@@ -264,7 +272,27 @@ curl -X POST http://localhost:3500/login \
 
 ## Hardware Integration
 
-The application is designed to control a 28BYJ-48 stepper motor (with a ULN2003 driver) connected via GPIO pins:
+The application is designed primarily for the **NEMA14 stepper motor** (with A4988 or compatible driver), offering robust and reliable dispensing performance. Default pin configuration for NEMA14 on a Raspberry Pi:
+
+- Pin 26: Direction pin
+- Pin 19: Step pin  
+- Pin 13: Sleep pin
+- Pin 6: Reset pin
+- Pin 17: Enable pin
+
+The NEMA14 motor:
+- Has 200 steps per full rotation (1.8° per step)
+- Currently supports full-step mode only
+- Requires proper power supply for the A4988 driver (DC 12V 2A)
+
+To use the NEMA14 motor, set `MOTOR_TYPE=StepperNema14` in your environment variables. The motor control logic enforces a configurable cooldown period after each dispensing operation to protect hardware (default: 5 seconds, configurable via `MOTOR_COOLDOWN_MS` or in the YAML configuration).
+
+**Extensible Motor Support:**
+Thanks to the trait-based architecture in [`src/motor`](src/motor), additional stepper motors and drivers can be supported with minimal code changes. You can add new motor implementations by following the existing trait pattern.
+
+### 28BYJ-48 (Legacy/Secondary Support)
+
+The application also supports the 28BYJ-48 stepper motor (with ULN2003 driver) as a legacy or secondary option. Default pin configuration:
 
 - Pin 26: Motor coil 1
 - Pin 19: Motor coil 2
@@ -276,25 +304,6 @@ Supported step modes for 28BYJ-48:
 - **Half step** (4096 steps per rotation, smoother motion)
 
 Other step modes (quarter, eighth, sixteenth) are defined but not implemented for this motor.
-
-### NEMA-14 Motor Support
-
-The application also supports NEMA-14 stepper motors with the A4988 driver, using the following default pin configuration:
-
-- Pin 26: Direction pin
-- Pin 19: Step pin  
-- Pin 13: Sleep pin
-- Pin 6: Reset pin
-- Pin 17: Enable pin
-
-The NEMA-14 motor:
-- Has 200 steps per full rotation (1.8° per step)
-- Currently supports full-step mode only
-- Requires proper power supply for the A4988 driver (DC 12V 2A)
-
-To use the NEMA-14 motor, set `MOTOR_TYPE=StepperNema14` in your environment variables.
-
-The motor control logic enforces a configurable cooldown period after each dispensing operation to protect hardware (default: 5 seconds, configurable via `MOTOR_COOLDOWN_MS` or in the YAML configuration).
 
 ### Motor Type Configuration
 
