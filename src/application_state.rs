@@ -141,14 +141,13 @@ fn init_motor(
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
         "StepperNema14" => {
-            if config.nema14.is_none() {
-                return Err("Nema14 configuration is missing".to_string());
-            }
-            let nema14_config = config.nema14.clone().unwrap();
+            let nema14_config = match config.nema14.clone() {
+                Some(config) => config,
+                None => return Err("Nema14 configuration is missing".to_string()),
+            };
             Ok(Box::new(StepperNema14::new(nema14_config)))
         }
         "StepperMock" => Ok(Box::new(StepperMock::new())),
-        // Add more motor types here as needed
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }
 }
