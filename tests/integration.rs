@@ -241,7 +241,7 @@ async fn test_dispense_endpoint_busy_response() {
         "Dispenser should be in 'Dispensing' state"
     );
 
-    wait_for_server(10500).await; // wait for mock dispensing to finish
+    wait_for_server(12500).await; // wait for mock dispensing to finish
     let hardware_status = get_hardware_status(&client, addr).await;
     assert_eq!(
         hardware_status.dispenser_status, "Cooldown",

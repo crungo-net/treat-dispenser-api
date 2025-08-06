@@ -44,18 +44,22 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
         .unwrap_or_default()
         .as_secs();
 
-    // wait for up to 1500ms for a power reading from broadcast channel
+    // wait for up to 500ms for a power reading from broadcast channel
     let power_reading =
-        match tokio::time::timeout(Duration::from_millis(1500), power_readings_rx.recv()).await {
-            Ok(Ok(reading)) => reading,
-            Ok(Err(e)) => {
-                error!("Broadcast receive error: {}", e);
+        //match tokio::time::timeout(Duration::from_millis(1500), power_readings_rx.recv()).await {
+        match tokio::time::timeout(Duration::from_millis(500), power_readings_rx.changed()).await {
+            Ok(Ok(())) => {
+                power_readings_rx.borrow().clone()
+            }
+            Ok(Err(_)) => {
+                warn!("Power reading channel closed, using dummy values");
                 PowerReading::dummy()
             }
             Err(_) => {
-                warn!("Timed out waiting for power reading");
+                warn!("Timeout waiting for power reading, using dummy values");
                 PowerReading::dummy()
             }
+
         };
     
     let power_sensor_name = match motor_power_sensor_mutex {
