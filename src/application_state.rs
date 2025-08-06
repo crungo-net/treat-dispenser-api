@@ -4,7 +4,6 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
-use tokio::sync::broadcast::Sender;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, warn, info};
 
@@ -49,7 +48,7 @@ pub struct ApplicationState {
     pub app_config: AppConfig,
     pub version: String,
     pub power_sensor_mutex: Option<Arc<Mutex<Box<dyn PowerSensor>>>>,
-    pub power_readings_tx: Sender<PowerReading>,
+    pub power_readings_tx: tokio::sync::watch::Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
 }
 
@@ -85,7 +84,8 @@ impl ApplicationState {
             }
         };
 
-        let (power_readings_tx, _power_rx) = tokio::sync::broadcast::channel::<PowerReading>(100);
+        let (power_readings_tx, _power_readings_rx) =
+            tokio::sync::watch::channel(PowerReading::default());
 
         let gpio = match Gpio::new() {
             Ok(gpio) => {
@@ -141,14 +141,13 @@ fn init_motor(
     match motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
         "StepperNema14" => {
-            if config.nema14.is_none() {
-                return Err("Nema14 configuration is missing".to_string());
-            }
-            let nema14_config = config.nema14.clone().unwrap();
+            let nema14_config = match config.nema14.clone() {
+                Some(config) => config,
+                None => return Err("Nema14 configuration is missing".to_string()),
+            };
             Ok(Box::new(StepperNema14::new(nema14_config)))
         }
         "StepperMock" => Ok(Box::new(StepperMock::new())),
-        // Add more motor types here as needed
         _ => Err(format!("Unsupported motor type '{}'", motor_type)),
     }
 }

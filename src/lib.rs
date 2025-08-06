@@ -59,6 +59,7 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
 
     let public_routes = Router::new()
         .route("/", get(routes::root))
+        .route("/favicon.ico", get(|| async { axum::http::StatusCode::NO_CONTENT })) // avoids 401 and 404 errors for browser requests to the API, which sometimes request favicon.ico
         .route("/login", post(routes::auth::login))
         .route("/status", get(routes::status::detailed_health));
 
@@ -75,7 +76,6 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
         app_state.clone(),
         merged_routes.with_state(app_state).layer(cors).layer(
             TraceLayer::new_for_http()
-                .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)) // log http failures at WARN level
                 .make_span_with(|request: &Request<_>| {
                     let request_ip_addr = request
                         .extensions()
@@ -92,7 +92,9 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
                         client_ip = %request_ip_addr,
                     )
                 })
-                .on_response(log_http_response_code),
+                .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)) // log http failures at WARN level
+                .on_request(log_http_request)
+                .on_response(log_http_response_code)
         ),
     );
 }
@@ -142,6 +144,23 @@ fn log_http_response_code<B>(
             trace!("response finished: {}", response.status())
         }
     }
+}
+
+fn log_http_request<B>(
+    request: &Request<B>,
+    _span: &tracing::Span,
+) {
+    let request_ip_addr = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(addr)| addr.to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    //span.record("client_ip", &request_ip_addr);
+    //span.record("method", &request.method().to_string());
+    //span.record("uri", &request.uri().to_string());
+
+    trace!("Received request: {}, {} {}", request_ip_addr, request.method(), request.uri());
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]

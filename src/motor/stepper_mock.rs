@@ -23,7 +23,7 @@ impl AsyncStepperMotor for StepperMock {
         cancel_token: &CancellationToken,
     ) -> Result<u32, String> {
         // Simulate motor operation
-        for _ in 0..3000 {
+        for _ in 0..5000 {
             if cancel_token.is_cancelled() {
                 return Err("Motor operation cancelled".to_string());
             }

@@ -18,6 +18,16 @@ impl PowerReading {
     }
 }
 
+impl Default for PowerReading {
+    fn default() -> Self {
+        PowerReading {
+            bus_voltage_volts: 0.0,
+            current_amps: 0.0,
+            power_watts: 0.0,
+        }
+    }
+}
+
 pub trait PowerSensor: Send + Sync {
     fn get_name(&self) -> String;
     fn get_power_reading(&mut self) -> Result<PowerReading, String>;

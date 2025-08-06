@@ -58,37 +58,15 @@ pub async fn start_power_monitoring_thread(
             info!("Starting power monitoring thread");
             let mut power_monitor = PowerMonitor::new();
             let mut i = 0;
+
+            // if average current is above 0.7 (default) amps, log it and cancel ongoing motor operations
+            let config = app_state_clone.lock().await.app_config.clone();
+            let current_limit = config.motor_current_limit_amps.unwrap_or(0.7);
+
             loop {
-                // log and clear power readings after every 30 readings (approx every 3 seconds)
-                if i == 30 {
-                    let avg_current = power_monitor.get_average_current();
-                    debug!(
-                        "Average current over last {} readings: {} A",
-                        power_monitor.get_readings().len(),
-                        avg_current
-                    );
-
-                    // if average current is above 0.7 (default) amps, log it and cancel ongoing motor operations
-                    let config = app_state_clone.lock().await.app_config.clone();
-                    let current_limit = config.motor_current_limit_amps.unwrap_or(0.7);
-
-                    if avg_current > current_limit {
-                        warn!("High average current detected: {} A", avg_current);
-                        let state_guard = app_state_clone.lock().await;
-
-                        if let Some(cancel_token) = &state_guard.motor_cancel_token {
-                            info!("Cancelling ongoing motor operations due to high current.");
-                            cancel_token.cancel();
-                        }
-                    }
-                    power_monitor.clear_readings();
-                    i = 0;
-                }
-
                 match &current_sensor {
                     Some(sensor_mutex) => {
                         let power_reading_result = sensor_mutex.lock().await.get_power_reading();
-
                         match power_reading_result {
                             Ok(power_reading) => {
                                 // publish the power reading to the channel
@@ -98,6 +76,30 @@ pub async fn start_power_monitoring_thread(
                             Err(e) => {
                                 error!("Failed to get power reading: {}", e);
                             }
+                        }
+
+                        // log and clear power readings after every 70 readings (approx every 7 seconds)
+                        if i == 70 {
+                            let avg_current = power_monitor.get_average_current();
+                            debug!(
+                                "Average current over last {} readings: {} A",
+                                power_monitor.get_readings().len(),
+                                avg_current
+                            );
+
+
+                            if avg_current > current_limit {
+                                warn!("High average current detected: {} A", avg_current);
+                                warn!("Readings: {:?}", power_monitor.get_readings());
+                                let state_guard = app_state_clone.lock().await;
+
+                                if let Some(cancel_token) = &state_guard.motor_cancel_token {
+                                    info!("Cancelling ongoing motor operations due to high current.");
+                                    cancel_token.cancel();
+                                }
+                            }
+                            power_monitor.clear_readings();
+                            i = 0;
                         }
                     }
                     None => {
