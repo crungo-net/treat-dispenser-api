@@ -74,7 +74,7 @@ impl SensorIna219 {
 
         let current_amps = current.0 as f32 / 1000.0; // Convert mA to A
         if current_amps > 2.0 {
-            warn!("Current reading is unrealistic: {} A", current_amps);
+            debug!("Current reading is unrealistic: {} A", current_amps);
         }
         Ok(current_amps.clamp(0.0, 2.0)) // clamped to realistic range
     }
