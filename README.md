@@ -27,7 +27,8 @@ This project is designed to work with the following hardware:
 - **INA219 sensor** (for current, voltage, and power monitoring via I2C)
 - **Raspberry Pi** (recommended), or any microcontroller or single-board computer with GPIO and I2C support
 
-Other stepper motors and sensors may be supported with code modifications (see the Hardware Integration section). Ensure your hardware is compatible with the provided 3D printed parts.
+Ensure your hardware is compatible with the provided 3D printed parts.
+Other stepper motors and sensors may be supported with code modifications by implementing the AsyncStepperMotor and PowerSensor traits (interfaces). See the Hardware Integration section for more information. 
 
 ## Quick Setup
 

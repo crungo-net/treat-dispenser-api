@@ -59,9 +59,8 @@ impl ApplicationState {
 
         info!("Starting treat-dispenser-api, version: {}", version);
 
-        // Initialize motor here, assuming a default implementation exists
         let motor_env =
-            std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "Stepper28BYJ48".to_string());
+            std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "StepperNema14".to_string());
 
         let motor = match init_motor(motor_env.to_string(), app_config.clone()) {
             Ok(motor) => {

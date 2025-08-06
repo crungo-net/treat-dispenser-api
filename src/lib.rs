@@ -21,7 +21,6 @@ use tracing::{Level, debug, error, info, trace, warn};
 use tracing_subscriber::EnvFilter;
 
 use crate::application_state::ApplicationState;
-use crate::middleware::auth::create_auth_middleware;
 
 pub fn configure_logging() {
     tracing_subscriber::fmt()
@@ -54,8 +53,6 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
             Method::OPTIONS,
         ])
         .allow_headers(Any);
-
-    let _auth_middleware = create_auth_middleware();
 
     let public_routes = Router::new()
         .route("/", get(routes::root))
