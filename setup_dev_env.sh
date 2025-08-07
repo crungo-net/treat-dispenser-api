@@ -91,9 +91,8 @@ fi
 if [ ! -f .env ]; then
     echo "📝 Creating .env file..."
     cat > .env << EOF
-DISPENSER_API_TOKEN=dev_token_for_local_testing
-DISPENSER_API_PORT=3500
-RUST_LOG=info
+DISPENSER_JWT_SECRET=test_secret_key
+RUST_LOG=debug
 MOTOR_TYPE=StepperMock
 EOF
 else
@@ -104,8 +103,7 @@ fi
 if [ ! -f .env.test ]; then
     echo "📝 Creating .env.test file..."
     cat > .env.test << EOF
-DISPENSER_API_TOKEN=test_token
-DISPENSER_API_PORT=0
+DISPENSER_JWT_SECRET=test_secret_key
 RUST_LOG=debug
 MOTOR_TYPE=StepperMock
 EOF
