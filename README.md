@@ -32,6 +32,11 @@ This project is designed to work with the following hardware:
 - **INA219 sensor** (for current, voltage, and power monitoring via I2C)
 - **Raspberry Pi** (recommended), or any microcontroller or single-board computer with GPIO and I2C support
 
+<p align="center">
+  <img src="docs/treat_dispenser_schematic.svg" alt="Treat Dispenser Wiring Diagram" width="600" />
+</p>
+<p align="center"><em>Wiring for the intended NEMA14/A4988 configuration</em></p>
+
 Ensure your hardware is compatible with the provided 3D printed parts.
 Other stepper motors and sensors may be supported with code modifications by implementing the AsyncStepperMotor and PowerSensor traits (interfaces). See the Hardware Integration section for more information. 
 
