@@ -15,6 +15,11 @@ A simple REST API for controlling a treat dispenser, built with [Axum](https://g
 - **Structured logging and diagnostics:** All actions and errors are logged for easy troubleshooting and auditability.
 - **Web and mobile friendly:** Designed for integration with web frontends, mobile apps, or home automation systems.
 
+<p align="center">
+  <img src="docs/treato_frontend.png" alt="Sample Treat Dispenser Frontend" width="600" />
+</p>
+<p align="center"><em>Simple monitoring frontend for the treat dispenser built with React (see <code>treat-dispenser-frontend</code> for source)</em></p>
+
 ## 3D Printing
 
 STL files for 3D printing the dispenser hardware are available in the `3d_printing` folder of this repository. These models are heavily modified and based on the original pellet dispenser designs by [jackpkenn](https://github.com/jackpkenn/PelletDispenser/tree/master). Please review and adapt as needed for your hardware setup.
