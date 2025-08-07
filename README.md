@@ -33,7 +33,7 @@ This project is designed to work with the following hardware:
 - **Raspberry Pi** (recommended), or any microcontroller or single-board computer with GPIO and I2C support
 
 <p align="center">
-  <img src="docs/treat_dispenser_schematic.svg" alt="Treat Dispenser Wiring Diagram" width="600" />
+  <img src="docs/treat_dispenser_schematic.png" alt="Treat Dispenser Wiring Diagram" width="600" />
 </p>
 <p align="center"><em>Wiring for the intended NEMA14/A4988 configuration</em></p>
 
