@@ -275,6 +275,7 @@ curl -X POST http://localhost:3500/login \
 
 - Use the returned JWT token in the `Authorization` header as `Bearer <JWT_TOKEN>` for all protected endpoints (e.g., `/dispense`, `/cancel`).
 - The default credentials are set in the config file (`admin_user`, `admin_password`). Change these for production.
+- The token expires 7 days after provisioning.
 
 ## Hardware Integration
 
@@ -298,7 +299,7 @@ Thanks to the trait-based architecture in [`src/motor`](src/motor), additional s
 
 ### 28BYJ-48 (Legacy/Secondary Support)
 
-The application also supports the 28BYJ-48 stepper motor (with ULN2003 driver) as a legacy or secondary option. Default pin configuration:
+The application also supports the 28BYJ-48 stepper motor (with ULN2003 driver) as a secondary (and cheaper) option. Default pin configuration:
 
 - Pin 26: Motor coil 1
 - Pin 19: Motor coil 2
@@ -363,7 +364,6 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
     - `mod.rs` – Exports utility modules
     - `datetime.rs` – Date/time formatting utilities
     - `filesystem.rs` – File system operations and path handling
-    - `gpio.rs` – GPIO helpers
     - `state_helpers.rs` – State manipulation helpers
 
 This structure separates business logic, hardware integration, HTTP interface, sensor monitoring, and utility functions for clarity and maintainability. Each module has a single responsibility, making the codebase easier to test and extend as new features are added.
@@ -466,12 +466,25 @@ This project uses a GitLab CI pipeline (see `.gitlab-ci.yml`) to automate testin
 - GitHub and GitLab tokens are used for release automation.
 
 **Multi-Arch Support:**
-- Both x86_64 and ARM64 binaries and images are built and published, supporting a wide range of deployment targets (including Raspberry Pi and cloud servers).
+- Both x86_64 and ARM64 binaries and images are built and published, supporting a wide range of deployment targets.
 
 **Debian Packages:**
 - The pipeline produces `.deb` packages for ARM64, suitable for Raspberry Pi and similar devices. These are available as artifacts and in GitHub Releases.
 
 See the `.gitlab-ci.yml` file for full details and customization options.
+
+## GitLab and GitHub: Why Both?
+
+This project is maintained in both a private self-hosted GitLab repository and a public GitHub repository. The primary reason for this dual setup is to leverage private build infrastructure:
+
+- **Private Docker Registry:** Container images are built and pushed to a secure, self-hosted Docker registry for internal deployments.
+- **Kubernetes Runners:** CI/CD pipelines use private Kubernetes runners for builds and deployments.
+- **Confidential Artifacts:** Some build artifacts and deployment configurations are kept private for security and operational reasons.
+
+The public GitHub repository is used for open-source collaboration, issue tracking, and public releases, while the private GitLab instance handles sensitive infrastructure and deployment automation.
+
+**Repository Mirroring:**
+GitLab is configured to automatically mirror (push) all changes to GitHub using its built-in repository mirroring feature. This ensures that the public GitHub repository stays up to date with the latest changes from the private GitLab source.
 
 ## License
 
