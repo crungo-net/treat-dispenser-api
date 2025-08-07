@@ -1,6 +1,28 @@
 # Treat Dispenser API
 
-A simple REST API for controlling a treat dispenser, built with [Axum](https://github.com/tokio-rs/axum) and async Rust.
+A simple REST API for controlling a treat dispenser, built with [Axum](https://github.com/tokio-rs/axum) and async Rust, and dedicated to my two rabbits.
+
+## Table of Contents
+
+- [Features](#features)
+- [3D Printing](#3d-printing)
+- [Hardware Requirements](#hardware-requirements)
+- [Quick Setup](#quick-setup)
+- [Installation](#installation)
+- [Debian Package (Raspberry Pi, ARM64)](#debian-package-raspberry-pi-arm64)
+- [Configuration](#configuration)
+- [Environment Variables](#environment-variables)
+- [Justfile Commands](#justfile-commands)
+- [Endpoints](#endpoints)
+- [Hardware Integration](#hardware-integration)
+- [Logging](#logging)
+- [Code Structure](#code-structure)
+- [Power Monitoring (INA219 Support)](#power-monitoring-ina219-support)
+- [Testing](#testing)
+- [Continuous Integration (CI)](#continuous-integration-ci)
+- [GitLab and GitHub: Why Both?](#gitlab-and-github-why-both)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ## Features
 
@@ -490,6 +512,14 @@ The public GitHub repository is used for open-source collaboration, issue tracki
 
 **Repository Mirroring:**
 GitLab is configured to automatically mirror (push) all changes to GitHub using its built-in repository mirroring feature. This ensures that the public GitHub repository stays up to date with the latest changes from the private GitLab source.
+
+## Roadmap
+
+Planned features and improvements for future releases:
+
+- **Treat availability detection:** Use load cells to detect the weight of treats and determine if the dispenser is empty or low.
+- **Camera integration:** Add support for a camera to monitor the dispenser or take photos/videos during dispensing.
+- **Play Mexican jingles:** Play Mexican jingles through speakers for one of my bunnies (one of whom grew up with and loves them).
 
 ## License
 
