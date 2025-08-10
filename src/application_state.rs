@@ -1,4 +1,6 @@
 use rppal::gpio::Gpio;
+use rppal::spi::Bus;
+use rppal::spi::SlaveSelect;
 use serde::Serialize;
 use std::fmt;
 use std::sync::Arc;
@@ -7,6 +9,9 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, warn, info};
 
+use crate::sensors::sensor_hx711::SensorHx711;
+use crate::sensors::WeightReading;
+use crate::sensors::WeightSensor;
 use crate::AppConfig;
 use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
@@ -50,6 +55,9 @@ pub struct ApplicationState {
     pub power_sensor_mutex: Option<Arc<Mutex<Box<dyn PowerSensor>>>>,
     pub power_readings_tx: tokio::sync::watch::Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
+    //pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
+    pub weight_sensor_mutex: Option<Arc<Mutex<SensorHx711>>>,
+    pub weight_readings_tx : tokio::sync::watch::Sender<WeightReading>,
 }
 
 impl ApplicationState {
@@ -104,6 +112,17 @@ impl ApplicationState {
             status = DispenserStatus::Operational;
         }
 
+        let weight_sensor = match SensorHx711::new(Bus::Spi0, SlaveSelect::Ss0) {
+            Ok(sensor) => sensor,
+            Err(e) => {
+                error!("Failed to initialize weight sensor: {}", e);
+                std::process::exit(1)
+            }
+        };
+        let weight_sensor_mutex = Some(Arc::new(Mutex::new(weight_sensor)));
+        let (weight_readings_tx, _weight_readings_rx) =
+            tokio::sync::watch::channel(WeightReading::default());
+
         Self {
             gpio,
             status,
@@ -117,6 +136,8 @@ impl ApplicationState {
             version,
             power_sensor_mutex,
             power_readings_tx,
+            weight_sensor_mutex,
+            weight_readings_tx,
             motor_cancel_token: None,
         }
     }
