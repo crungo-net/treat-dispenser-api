@@ -62,24 +62,63 @@ pub async fn start_weight_monitoring_thread(
 
 pub async fn calibrate_weight_sensor(
     app_state: Arc<Mutex<ApplicationState>>,
-    scale: f32,
-    offset: f32,
+    known_mass_grams: f32,
 ) -> Result<(), String> {
     let app_state = Arc::clone(&app_state);
 
     let calibration_in_progress = app_state.lock().await.calibration_in_progress.clone();
     calibration_in_progress.store(true, Ordering::Relaxed);
 
+    // Get the current calibration state
+    let calibration_rx = app_state.lock().await.calibration_rx.clone();
+    let calibration_tx = app_state.lock().await.calibration_tx.clone();
+    let mut calibration = calibration_rx.borrow().clone();
+
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
+    let mut samples: Vec<WeightReading> = Vec::with_capacity(30);
 
     if let Some(sensor_mutex) = sensor_mutex_opt {
-        let sensor = sensor_mutex.lock().await;
-        info!("Calibrating weight sensor with scale: {}, offset: {}", scale, offset);
+        // get approx 3 seconds of samples from weight sensor
+        info!("Calibrating weight sensor, please wait...");
 
-        Ok(())
+        for _ in 0..30 {
+            let read_result = {
+                let mut sensor = sensor_mutex.lock().await;
+                sensor.get_raw()
+            };
+            match read_result {
+                Ok(reading) => {
+                    samples.push(reading);
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+                Err(e) => {
+                    error!("Failed to read weight during tare: {}", e);
+                }
+            }
+        }
     } else {
-        Err("No weight sensor available".to_string())
+        return Err("No weight sensor available".to_string())
     }
+
+    calibration_in_progress.store(false, Ordering::Relaxed);
+    samples.sort_unstable();
+
+    // calculate trimmed mean (trim off 20% from both ends)
+    let k = (samples.len() as f32 * 0.2).round() as usize; // this is how many samples to trim from each end
+
+    // subslice that excludes lowest k and highest k samples, 
+    // ensuring we have at least one sample left after trimming
+    let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)];
+    let sum: i64 = slice.iter().map(|v| v.raw as i64).sum();
+    let mean_raw = (sum as f32 / slice.len() as f32).round() as i32;
+
+    // Calculate the scale factor
+    let mut scale = (mean_raw - calibration.tare_raw) as f32 / known_mass_grams;
+    if scale < 0.0 { scale = scale.abs();}
+
+    calibration.scale = scale;
+    let _ = calibration_tx.send(calibration.clone());
+    Ok(())
 }
 
 pub async fn tare_weight_sensor(
@@ -137,7 +176,10 @@ pub async fn tare_weight_sensor(
 
     // calculate trimmed mean (trim off 20% from both ends)
     let k = (samples.len() as f32 * 0.2).round() as usize; // this is how many samples to trim from each end
-    let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)]; // ensure we have at least one sample left after trimming
+
+    // subslice that excludes lowest k and highest k samples, 
+    // ensuring we have at least one sample left after trimming
+    let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)];
     let sum: i64 = slice.iter().map(|v| v.raw as i64).sum();
     let tare_raw = (sum as f32 / slice.len() as f32).round() as i32;
 

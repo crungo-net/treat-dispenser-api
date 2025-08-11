@@ -44,7 +44,7 @@ impl SensorHx711 {
 
 impl WeightSensor for SensorHx711 {
     fn get_name(&self) -> String {
-        "HX711".to_string()
+        "SensorHX711".to_string()
     }
 
     fn get_raw(&mut self) -> Result<WeightReading, String> {
