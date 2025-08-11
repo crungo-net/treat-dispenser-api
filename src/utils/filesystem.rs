@@ -2,6 +2,10 @@ pub fn get_config_path() -> String {
     "/etc/treat-dispenser-api/config.yaml".to_string() // todo: make this configurable
 }
 
+pub fn get_calibration_file_path() -> String {
+    "/etc/treat-dispenser-api/weight_sensor_calibration.json".to_string() // todo: make this configurable
+}
+
 pub fn save_json_to_file<T: serde::Serialize>(path: &str, data: &T) -> Result<(), String> {
     let json_data = serde_json::to_string(data).map_err(|e| e.to_string())?;
     std::fs::write(path, json_data).map_err(|e| e.to_string())

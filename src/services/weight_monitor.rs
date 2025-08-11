@@ -255,14 +255,12 @@ fn calculate_trimmed_mean(samples: &mut [i32]) -> f32 {
 pub fn save_calibration_to_file(
     calibration: &WeightSensorCalibration,
 ) -> Result<(), String> {
-    let path = "/etc/treat-dispenser-api/weight_sensor_calibration.json"; // todo: make configurable
-    filesystem::save_json_to_file(path, calibration)
+    filesystem::save_json_to_file(&filesystem::get_calibration_file_path(), calibration)
         .map_err(|e| format!("Failed to save calibration to file: {}", e))
 }
 
 
 pub fn load_calibration_from_file() -> Result<WeightSensorCalibration, String> {
-    let path = "/etc/treat-dispenser-api/weight_sensor_calibration.json"; 
-    filesystem::read_json_from_file(path)
+    filesystem::read_json_from_file(&filesystem::get_calibration_file_path())
         .map_err(|e| format!("Failed to read calibration from file: {}", e))
 }

@@ -1,4 +1,5 @@
 use reqwest::Client;
+use treat_dispenser_api::services::weight_monitor::start_weight_monitoring_thread;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::Once;
@@ -170,6 +171,20 @@ async fn test_power_monitoring_thread() {
     assert_eq!(status_json.motor_current_amps, Some(0.6));
     assert_eq!(status_json.motor_power_watts, Some(0.5));
     assert_eq!(status_json.motor_power_sensor, "SensorMock");
+}
+
+#[tokio::test]
+async fn test_weight_monitoring_thread() {
+    let (addr, client, app_state) = setup(None).await;
+    start_weight_monitoring_thread(app_state).await;
+    wait_for_server(5000).await; // Wait for server to be ready
+
+    let response = get_with_auth(&client, addr, "/status").await;
+    assert!(response.status().is_success());
+
+    let status_json = response.json::<StatusResponse>().await.unwrap();
+
+    assert_eq!(status_json.remaining_treats_grams, 12345);
 }
 
 #[tokio::test]
