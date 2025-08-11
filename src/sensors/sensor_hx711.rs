@@ -3,7 +3,7 @@ use crate::sensors::WeightSensor;
 use crate::sensors::WeightSensorCalibration;
 use hx711_spi::{Hx711, Hx711Error, Mode as HxMode};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
-use tracing::{error, info, trace};
+use tracing::{trace};
 
 pub struct SensorHx711 {
     hx711: Hx711<Spi>,

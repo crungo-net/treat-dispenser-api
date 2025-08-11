@@ -1,5 +1,5 @@
 use crate::application_state::{self, ApplicationState};
-use crate::sensors::{WeightReading, WeightSensorCalibration};
+use crate::sensors::{WeightSensorCalibration};
 use crate::utils::state_helpers;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, atomic::Ordering};
@@ -8,6 +8,11 @@ use tokio::sync::Mutex;
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{debug, error, info, trace};
 
+/// Spawns an asynchronous task that periodically reads the weight sensor (if present)
+/// and publishes processed weight readings to subscribers. Skips sampling while a
+/// calibration (tare or scale) operation is in progress.
+///
+/// * `app_state` - Shared application state containing sensor handles and channels.
 pub async fn start_weight_monitoring_thread(app_state: Arc<Mutex<ApplicationState>>) {
     tokio::spawn({
         let app_state_clone = Arc::clone(&app_state);
@@ -60,6 +65,14 @@ pub async fn start_weight_monitoring_thread(app_state: Arc<Mutex<ApplicationStat
     });
 }
 
+/// Performs a scale calibration using a known mass placed on the load cell.
+/// Collects a fixed number of raw samples, computes a trimmed mean, and derives a
+/// scale factor relative to the previously stored tare value.
+///
+/// * `app_state` - Shared application state.
+/// * `known_mass_grams` - Mass (in grams) of the calibration weight currently on the platform.
+///
+/// Returns updated calibration metadata (including new scale factor) or an error.
 pub async fn calibrate_weight_sensor(
     app_state: Arc<Mutex<ApplicationState>>,
     known_mass_grams: f32,
@@ -119,6 +132,12 @@ pub async fn calibrate_weight_sensor(
     })
 }
 
+/// Performs a tare (zero) calibration. Samples the load cell with no weight applied,
+/// computes a trimmed mean, and stores it as the new tare baseline in shared state.
+///
+/// * `app_state` - Shared application state.
+///
+/// Returns updated calibration metadata including the new tare value or an error.
 pub async fn tare_weight_sensor(
     app_state: Arc<Mutex<ApplicationState>>,
 ) -> Result<CalibrationResponse, String> {
@@ -195,22 +214,28 @@ pub async fn tare_weight_sensor(
     })
 }
 
+/// Response returned by calibration/tare endpoints containing a human-friendly
+/// message and the updated calibration state.
 #[derive(Clone, Debug, Serialize)]
 pub struct CalibrationResponse {
     pub msg: String,
     pub calibration: WeightSensorCalibration,
 }
 
+/// Request payload for scale calibration; carries the known mass (in grams)
+/// currently placed on the load cell.
 #[derive(Deserialize)]
 pub struct CalibrationRequest {
     pub known_mass_grams: f32,
 }
 
+/// Computes a 20% trimmed mean (removes the lowest and highest 20% of values)
+/// from the supplied sample slice, returning a rounded f32. Helps reject outliers
+/// and reduce noise in raw load cell readings.
 fn calculate_trimmed_mean(samples: &mut [i32]) -> f32 {
     samples.sort_unstable();
 
-    // calculate trimmed mean (trim off 20% from both ends)
-    let k = (samples.len() as f32 * 0.2).round() as usize; // this is how many samples to trim from each end
+    let k = (samples.len() as f32 * 0.2).round() as usize; 
 
     // subslice that excludes lowest k and highest k samples,
     // ensuring we have at least one sample left after trimming
