@@ -53,7 +53,7 @@ pub async fn start_weight_monitoring_thread(app_state: Arc<Mutex<ApplicationStat
                                 let _ = weight_readings_tx.send(weight);
                             }
                             Err(e) => {
-                                error!("Failed to read weight: {}", e);
+                                trace!("Failed to read weight: {}", e);
                             }
                         }
                     }
@@ -252,17 +252,16 @@ fn calculate_trimmed_mean(samples: &mut [i32]) -> f32 {
     trimmed_mean
 }
 
-fn save_calibration_to_file(
+pub fn save_calibration_to_file(
     calibration: &WeightSensorCalibration,
 ) -> Result<(), String> {
     let path = "/etc/treat-dispenser-api/weight_sensor_calibration.json"; // todo: make configurable
-    let json_data = serde_json::to_string(calibration).map_err(|e| e.to_string())?;
-    filesystem::save_json_to_file(path, &json_data)
+    filesystem::save_json_to_file(path, calibration)
         .map_err(|e| format!("Failed to save calibration to file: {}", e))
 }
 
 
-fn read_calibration_from_file() -> Result<WeightSensorCalibration, String> {
+pub fn load_calibration_from_file() -> Result<WeightSensorCalibration, String> {
     let path = "/etc/treat-dispenser-api/weight_sensor_calibration.json"; 
     filesystem::read_json_from_file(path)
         .map_err(|e| format!("Failed to read calibration from file: {}", e))

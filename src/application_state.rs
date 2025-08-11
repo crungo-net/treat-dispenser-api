@@ -20,6 +20,7 @@ use crate::sensors::PowerSensor;
 use crate::sensors::WeightReading;
 use crate::sensors::WeightSensor;
 use crate::sensors::WeightSensorCalibration;
+use crate::services::weight_monitor;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -133,8 +134,14 @@ impl ApplicationState {
         let (weight_readings_tx, weight_readings_rx) =
             tokio::sync::watch::channel(WeightReading::default());
 
+        let weight_sensor_calibration = weight_monitor::load_calibration_from_file()
+            .unwrap_or_else(|e| {
+                warn!("Failed to load weight sensor calibration from file, will use default values instead. Error: {}", e);
+                WeightSensorCalibration::default()
+            });
+
         let (calibration_tx, calibration_rx) =
-            tokio::sync::watch::channel(WeightSensorCalibration::default());
+            tokio::sync::watch::channel(weight_sensor_calibration);
 
         Self {
             gpio,
