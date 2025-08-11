@@ -3,7 +3,7 @@ use crate::sensors::WeightSensor;
 use crate::sensors::WeightSensorCalibration;
 use hx711_spi::{Hx711, Hx711Error, Mode as HxMode};
 use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
-use tracing::{trace};
+use tracing::{info};
 
 pub struct SensorHx711 {
     hx711: Hx711<Spi>,
@@ -36,6 +36,7 @@ impl SensorHx711 {
             }
         }
 
+        info!("Initialized HX711 on SPI bus {:?} with slave select {:?}", _spi_bus, _slave_select);
         Ok(SensorHx711 { hx711 })
     }
 }
@@ -59,7 +60,7 @@ impl WeightSensor for SensorHx711 {
 
         let grams = SensorHx711::grams_from_raw(raw, calibration.clone()).round() as i32;
 
-        trace!("grams={grams}");
+        //trace!("grams={grams}");
         let reading = WeightReading { grams };
         Ok(reading)
     }
@@ -73,7 +74,7 @@ impl WeightSensor for SensorHx711 {
                 return Err(format!("HX711 read error: {:?}", e));
             }
         };
-        trace!("raw={raw}");
+        //trace!("raw={raw}");
         Ok(raw)
     }
 }

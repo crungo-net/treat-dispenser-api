@@ -60,6 +60,7 @@ pub struct ApplicationState {
     pub motor_cancel_token: Option<CancellationToken>,
     pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
     pub weight_readings_tx: tokio::sync::watch::Sender<WeightReading>,
+    pub weight_readings_rx: tokio::sync::watch::Receiver<WeightReading>,
     pub calibration_in_progress: Arc<AtomicBool>,
     pub calibration_tx: tokio::sync::watch::Sender<WeightSensorCalibration>,
     pub calibration_rx: tokio::sync::watch::Receiver<WeightSensorCalibration>,
@@ -129,7 +130,7 @@ impl ApplicationState {
         };
 
         let weight_sensor_mutex = Some(Arc::new(Mutex::new(weight_sensor)));
-        let (weight_readings_tx, _weight_readings_rx) =
+        let (weight_readings_tx, weight_readings_rx) =
             tokio::sync::watch::channel(WeightReading::default());
 
         let (calibration_tx, calibration_rx) =
@@ -150,6 +151,7 @@ impl ApplicationState {
             power_readings_tx,
             weight_sensor_mutex,
             weight_readings_tx,
+            weight_readings_rx,
             motor_cancel_token: None,
             calibration_in_progress: Arc::new(AtomicBool::new(false)),
             calibration_tx,

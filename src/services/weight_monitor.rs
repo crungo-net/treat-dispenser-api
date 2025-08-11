@@ -1,6 +1,7 @@
 use crate::application_state::{self, ApplicationState};
 use crate::sensors::{WeightSensorCalibration};
 use crate::utils::state_helpers;
+use crate::utils::filesystem;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
@@ -126,6 +127,11 @@ pub async fn calibrate_weight_sensor(
     calibration.scale = scale;
     let _ = calibration_tx.send(calibration.clone());
 
+    // save the updated calibration to file
+    if let Err(e) = save_calibration_to_file(&calibration) {
+        error!("Failed to save calibration to file: {}", e);
+    }
+
     Ok(CalibrationResponse {
         msg: format!("Calibration successful. Scale factor: {:.4}", scale),
         calibration,
@@ -244,4 +250,20 @@ fn calculate_trimmed_mean(samples: &mut [i32]) -> f32 {
     let trimmed_mean = (sum as f32 / slice.len() as f32).round();
 
     trimmed_mean
+}
+
+fn save_calibration_to_file(
+    calibration: &WeightSensorCalibration,
+) -> Result<(), String> {
+    let path = "/etc/treat-dispenser-api/weight_sensor_calibration.json"; // todo: make configurable
+    let json_data = serde_json::to_string(calibration).map_err(|e| e.to_string())?;
+    filesystem::save_json_to_file(path, &json_data)
+        .map_err(|e| format!("Failed to save calibration to file: {}", e))
+}
+
+
+fn read_calibration_from_file() -> Result<WeightSensorCalibration, String> {
+    let path = "/etc/treat-dispenser-api/weight_sensor_calibration.json"; 
+    filesystem::read_json_from_file(path)
+        .map_err(|e| format!("Failed to read calibration from file: {}", e))
 }
