@@ -1,6 +1,7 @@
-use crate::sensors::PowerSensor;
 use crate::sensors::PowerReading;
+use crate::sensors::PowerSensor;
 use crate::sensors::WeightSensor;
+use crate::sensors::WeightSensorCalibration;
 
 pub struct SensorMock {}
 
@@ -9,9 +10,17 @@ impl WeightSensor for SensorMock {
         "SensorMock".to_string()
     }
 
-    fn get_raw(&mut self) -> Result<crate::sensors::WeightReading, String> {
+    fn get_weight_reading(
+        &mut self,
+        _calibration: &WeightSensorCalibration,
+    ) -> Result<crate::sensors::WeightReading, String> {
         // Return a dummy weight reading for testing purposes
-        Ok(crate::sensors::WeightReading { raw: 12345 })
+        Ok(crate::sensors::WeightReading { grams: 12345 })
+    }
+
+    fn get_raw(&mut self) -> Result<i32, String> {
+        // Return a dummy raw reading for testing purposes
+        Ok(123456)
     }
 }
 

@@ -1,22 +1,22 @@
+use crate::application_state::{self, ApplicationState};
+use crate::sensors::{WeightReading, WeightSensorCalibration};
+use crate::utils::state_helpers;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
-use tokio::time::{interval, MissedTickBehavior};
-use tracing::{info, error, debug, trace};
-use crate::application_state::{self, ApplicationState};
-use crate::sensors::{Calibration, WeightReading};
-use crate::utils::state_helpers;
+use tokio::time::{MissedTickBehavior, interval};
+use tracing::{debug, error, info, trace};
 
-
-pub async fn start_weight_monitoring_thread(
-    app_state: Arc<Mutex<ApplicationState>>,
-) {
+pub async fn start_weight_monitoring_thread(app_state: Arc<Mutex<ApplicationState>>) {
     tokio::spawn({
         let app_state_clone = Arc::clone(&app_state);
         let sensor_mutex_opt = app_state_clone.lock().await.weight_sensor_mutex.clone();
         let weight_readings_tx = app_state_clone.lock().await.weight_readings_tx.clone();
-        let calibration_in_progress = Arc::clone(&app_state_clone.lock().await.calibration_in_progress);
+        let calibration_in_progress =
+            Arc::clone(&app_state_clone.lock().await.calibration_in_progress);
+
+        let calibration_rx = app_state_clone.lock().await.calibration_rx.clone();
 
         async move {
             match sensor_mutex_opt {
@@ -37,7 +37,8 @@ pub async fn start_weight_monitoring_thread(
 
                         let reading_result = {
                             let mut sensor = sensor_mutex.lock().await;
-                            sensor.get_raw()
+                            let calibration = calibration_rx.borrow().clone();
+                            sensor.get_weight_reading(&calibration)
                         };
 
                         match reading_result {
@@ -59,7 +60,6 @@ pub async fn start_weight_monitoring_thread(
     });
 }
 
-
 pub async fn calibrate_weight_sensor(
     app_state: Arc<Mutex<ApplicationState>>,
     known_mass_grams: f32,
@@ -75,7 +75,7 @@ pub async fn calibrate_weight_sensor(
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
-    let mut samples: Vec<WeightReading> = Vec::with_capacity(30);
+    let mut samples: Vec<i32> = Vec::with_capacity(30);
 
     if let Some(sensor_mutex) = sensor_mutex_opt {
         // get approx 3 seconds of samples from weight sensor
@@ -92,12 +92,12 @@ pub async fn calibrate_weight_sensor(
                     tokio::time::sleep(Duration::from_millis(100)).await;
                 }
                 Err(e) => {
-                    error!("Failed to read weight during tare: {}", e);
+                    error!("Failed to read weight during calibration: {}", e);
                 }
             }
         }
     } else {
-        return Err("No weight sensor available".to_string())
+        return Err("No weight sensor available".to_string());
     }
 
     calibration_in_progress.store(false, Ordering::Relaxed);
@@ -105,8 +105,10 @@ pub async fn calibrate_weight_sensor(
     let mean_raw = calculate_trimmed_mean(&mut samples);
 
     // Calculate the scale factor
-    let mut scale = (mean_raw - calibration.tare_raw as f32)  / known_mass_grams;
-    if scale < 0.0 { scale = scale.abs();}
+    let mut scale = (mean_raw - calibration.tare_raw as f32) / known_mass_grams;
+    if scale < 0.0 {
+        scale = scale.abs();
+    }
 
     calibration.scale = scale;
     let _ = calibration_tx.send(calibration.clone());
@@ -128,7 +130,8 @@ pub async fn tare_weight_sensor(
     state_helpers::set_dispenser_status_async(
         &app_state,
         application_state::DispenserStatus::Calibrating,
-    ).await;
+    )
+    .await;
 
     // Get the current calibration state
     let calibration_rx = app_state.lock().await.calibration_rx.clone();
@@ -136,7 +139,7 @@ pub async fn tare_weight_sensor(
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
-    let mut samples: Vec<WeightReading> = Vec::with_capacity(30);
+    let mut samples: Vec<i32> = Vec::with_capacity(30);
 
     if let Some(sensor_mutex) = sensor_mutex_opt {
         // get approx 3 seconds of samples from weight sensor
@@ -157,13 +160,13 @@ pub async fn tare_weight_sensor(
                 }
             }
         }
-
     } else {
         calibration_in_progress.store(false, Ordering::Relaxed);
         state_helpers::set_dispenser_status_async(
             &app_state,
             application_state::DispenserStatus::CalibrationFailed,
-        ).await;
+        )
+        .await;
         return Err("No weight sensor available".to_string());
     }
 
@@ -183,16 +186,19 @@ pub async fn tare_weight_sensor(
     state_helpers::set_dispenser_status_async(
         &app_state,
         application_state::DispenserStatus::Operational,
-    ).await;
+    )
+    .await;
 
-    Ok(CalibrationResponse { msg: ("Tare successful.".to_string()), calibration })
+    Ok(CalibrationResponse {
+        msg: ("Tare successful.".to_string()),
+        calibration,
+    })
 }
-
 
 #[derive(Clone, Debug, Serialize)]
 pub struct CalibrationResponse {
     pub msg: String,
-    pub calibration: Calibration,
+    pub calibration: WeightSensorCalibration,
 }
 
 #[derive(Deserialize)]
@@ -200,17 +206,17 @@ pub struct CalibrationRequest {
     pub known_mass_grams: f32,
 }
 
-fn calculate_trimmed_mean(samples: &mut [WeightReading]) -> f32 {
+fn calculate_trimmed_mean(samples: &mut [i32]) -> f32 {
     samples.sort_unstable();
 
     // calculate trimmed mean (trim off 20% from both ends)
     let k = (samples.len() as f32 * 0.2).round() as usize; // this is how many samples to trim from each end
 
-    // subslice that excludes lowest k and highest k samples, 
+    // subslice that excludes lowest k and highest k samples,
     // ensuring we have at least one sample left after trimming
     let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)];
-    let sum: i64 = slice.iter().map(|v| v.raw as i64).sum();
-    let trimmed_mean = (sum as f32 / slice.len() as f32).round() as i32;
+    let sum: i64 = slice.iter().map(|v| *v as i64).sum();
+    let trimmed_mean = (sum as f32 / slice.len() as f32).round();
 
-    trimmed_mean as f32
+    trimmed_mean
 }

@@ -3,16 +3,13 @@ use rppal::spi::Bus;
 use rppal::spi::SlaveSelect;
 use serde::Serialize;
 use std::fmt;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 
-use crate::sensors::Calibration;
-use crate::sensors::WeightReading;
-use crate::sensors::WeightSensor;
 use crate::AppConfig;
 use crate::motor::AsyncStepperMotor;
 use crate::motor::stepper_28byj48::Stepper28BYJ48;
@@ -20,6 +17,9 @@ use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
 use crate::sensors::PowerReading;
 use crate::sensors::PowerSensor;
+use crate::sensors::WeightReading;
+use crate::sensors::WeightSensor;
+use crate::sensors::WeightSensorCalibration;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -59,10 +59,10 @@ pub struct ApplicationState {
     pub power_readings_tx: tokio::sync::watch::Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
     pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
-    pub weight_readings_tx : tokio::sync::watch::Sender<WeightReading>,
+    pub weight_readings_tx: tokio::sync::watch::Sender<WeightReading>,
     pub calibration_in_progress: Arc<AtomicBool>,
-    pub calibration_tx: tokio::sync::watch::Sender<Calibration>,
-    pub calibration_rx: tokio::sync::watch::Receiver<Calibration>,
+    pub calibration_tx: tokio::sync::watch::Sender<WeightSensorCalibration>,
+    pub calibration_rx: tokio::sync::watch::Receiver<WeightSensorCalibration>,
 }
 
 impl ApplicationState {
@@ -72,8 +72,7 @@ impl ApplicationState {
 
         info!("Starting treat-dispenser-api, version: {}", version);
 
-        let motor_env =
-            std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "StepperNema14".to_string());
+        let motor_env = std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "StepperNema14".to_string());
 
         let motor = match init_motor(motor_env.to_string(), app_config.clone()) {
             Ok(motor) => {
@@ -86,8 +85,8 @@ impl ApplicationState {
             }
         };
 
-        let power_sensor_env = std::env::var("POWER_SENSOR")
-            .unwrap_or_else(|_| "SensorINA219".to_string());
+        let power_sensor_env =
+            std::env::var("POWER_SENSOR").unwrap_or_else(|_| "SensorINA219".to_string());
         let power_sensor_mutex = match init_power_sensor(power_sensor_env, &app_config) {
             Ok(sensor) => Some(Arc::new(Mutex::new(sensor))),
             Err(e) => {
@@ -133,7 +132,8 @@ impl ApplicationState {
         let (weight_readings_tx, _weight_readings_rx) =
             tokio::sync::watch::channel(WeightReading::default());
 
-        let (calibration_tx, calibration_rx) = tokio::sync::watch::channel(Calibration::default());
+        let (calibration_tx, calibration_rx) =
+            tokio::sync::watch::channel(WeightSensorCalibration::default());
 
         Self {
             gpio,
@@ -163,8 +163,13 @@ fn init_weight_sensor(
     _app_config: &AppConfig,
 ) -> Result<Box<dyn WeightSensor>, String> {
     match sensor_name.as_str() {
-        "SensorHX711" => return Ok(Box::new(crate::sensors::sensor_hx711::SensorHx711::new(Bus::Spi0, SlaveSelect::Ss0)?)),
-        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())), 
+        "SensorHX711" => {
+            return Ok(Box::new(crate::sensors::sensor_hx711::SensorHx711::new(
+                Bus::Spi0,
+                SlaveSelect::Ss0,
+            )?));
+        }
+        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())),
         _ => return Err(format!("Unsupported weight sensor type '{}'", sensor_name)),
     };
 }
@@ -175,7 +180,7 @@ fn init_power_sensor(
 ) -> Result<Box<dyn PowerSensor>, String> {
     match sensor_name.as_str() {
         "SensorINA219" => return Ok(Box::new(crate::sensors::sensor_ina219::SensorIna219::new())),
-        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())), 
+        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())),
         _ => return Err(format!("Unsupported power sensor type '{}'", sensor_name)),
     };
 }

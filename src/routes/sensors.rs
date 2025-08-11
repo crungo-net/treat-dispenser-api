@@ -4,8 +4,8 @@ use crate::application_state;
 use crate::error::ApiError;
 use crate::services::weight_monitor::{self, CalibrationResponse};
 use crate::utils::state_helpers;
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 
 pub async fn tare_weight_sensor(
     State(app_state): State<application_state::AppStateMutex>,
@@ -14,10 +14,8 @@ pub async fn tare_weight_sensor(
 
     let tare_result = weight_monitor::tare_weight_sensor(Arc::clone(&app_state)).await;
 
-     match tare_result {
-        Ok(response) => {
-            Ok(Json(response))
-        }
+    match tare_result {
+        Ok(response) => Ok(Json(response)),
         Err(e) => {
             state_helpers::record_error(&app_state, &e).await;
             Err(ApiError::Hardware(e))
@@ -31,10 +29,9 @@ pub async fn calibrate_weight_sensor(
 ) -> Result<Json<CalibrationResponse>, ApiError> {
     let app_state = Arc::clone(&app_state);
 
-    let calibration_result = weight_monitor::calibrate_weight_sensor(
-        Arc::clone(&app_state),
-        request.known_mass_grams,
-    ).await;
+    let calibration_result =
+        weight_monitor::calibrate_weight_sensor(Arc::clone(&app_state), request.known_mass_grams)
+            .await;
 
     match calibration_result {
         Ok(response) => Ok(Json(response)),

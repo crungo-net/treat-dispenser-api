@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+pub mod sensor_hx711;
 pub mod sensor_ina219;
 pub mod sensor_mock;
-pub mod sensor_hx711;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Calibration {
+pub struct WeightSensorCalibration {
     /// Scale factor for converting raw readings to grams
     pub scale: f32,
 
@@ -13,12 +13,12 @@ pub struct Calibration {
     pub offset: f32,
 
     /// Raw tare value to subtract from readings
-    pub tare_raw: i32, 
+    pub tare_raw: i32,
 }
 
-impl Default for Calibration {
+impl Default for WeightSensorCalibration {
     fn default() -> Self {
-        Calibration {
+        WeightSensorCalibration {
             scale: 1.0,
             offset: 0.0,
             tare_raw: 0,
@@ -55,22 +55,18 @@ impl Default for PowerReading {
 
 #[derive(Clone, Debug, Ord, PartialEq, Eq, PartialOrd)]
 pub struct WeightReading {
-    pub raw: i32,
+    pub grams: i32,
 }
 
 impl WeightReading {
     pub fn dummy() -> Self {
-        WeightReading {
-            raw: -1,
-        }
+        WeightReading { grams: -1 }
     }
 }
 
 impl Default for WeightReading {
     fn default() -> Self {
-        WeightReading {
-            raw: 0,
-        }
+        WeightReading { grams: 0 }
     }
 }
 
@@ -81,5 +77,9 @@ pub trait PowerSensor: Send + Sync {
 
 pub trait WeightSensor: Send {
     fn get_name(&self) -> String;
-    fn get_raw(&mut self) -> Result<WeightReading, String>;
+    fn get_weight_reading(
+        &mut self,
+        calibration: &WeightSensorCalibration,
+    ) -> Result<WeightReading, String>;
+    fn get_raw(&mut self) -> Result<i32, String>;
 }

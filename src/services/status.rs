@@ -61,7 +61,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
             }
 
         };
-    
+
     let power_sensor_name = match motor_power_sensor_mutex {
         Some(sensor) => sensor.lock().await.get_name(),
         None => "No Power Sensor".to_string(),

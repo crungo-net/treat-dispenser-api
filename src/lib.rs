@@ -56,7 +56,10 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
 
     let public_routes = Router::new()
         .route("/", get(routes::root))
-        .route("/favicon.ico", get(|| async { axum::http::StatusCode::NO_CONTENT })) // avoids 401 and 404 errors for browser requests to the API, which sometimes request favicon.ico
+        .route(
+            "/favicon.ico",
+            get(|| async { axum::http::StatusCode::NO_CONTENT }),
+        ) // avoids 401 and 404 errors for browser requests to the API, which sometimes request favicon.ico
         .route("/login", post(routes::auth::login))
         .route("/status", get(routes::status::detailed_health));
 
@@ -93,7 +96,7 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
                 })
                 .on_failure(DefaultOnFailure::new().level(tracing::Level::WARN)) // log http failures at WARN level
                 .on_request(log_http_request)
-                .on_response(log_http_response_code)
+                .on_response(log_http_response_code),
         ),
     );
 }
@@ -145,10 +148,7 @@ fn log_http_response_code<B>(
     }
 }
 
-fn log_http_request<B>(
-    request: &Request<B>,
-    _span: &tracing::Span,
-) {
+fn log_http_request<B>(request: &Request<B>, _span: &tracing::Span) {
     let request_ip_addr = request
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
@@ -159,7 +159,12 @@ fn log_http_request<B>(
     //span.record("method", &request.method().to_string());
     //span.record("uri", &request.uri().to_string());
 
-    trace!("Received request: {}, {} {}", request_ip_addr, request.method(), request.uri());
+    trace!(
+        "Received request: {}, {} {}",
+        request_ip_addr,
+        request.method(),
+        request.uri()
+    );
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]

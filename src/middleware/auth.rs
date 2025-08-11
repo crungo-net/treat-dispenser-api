@@ -1,15 +1,9 @@
 use crate::error::ApiError;
-use axum::{
-    extract::Request,
-    http,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http, middleware::Next, response::Response};
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use tracing::{debug, warn};
 
 use crate::services::auth::Claims;
-
 
 pub async fn token_auth_middleware(request: Request, next: Next) -> Result<Response, ApiError> {
     // Extract token from Authorization header
@@ -35,7 +29,7 @@ pub async fn token_auth_middleware(request: Request, next: Next) -> Result<Respo
         Err(_) => {
             return Err(ApiError::Internal(
                 "DISPENSER_JWT_SECRET not set in config".to_string(),
-            ))
+            ));
         }
     };
 

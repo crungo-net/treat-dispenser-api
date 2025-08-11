@@ -1,13 +1,9 @@
-
-use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
-use hx711_spi::{Hx711, Hx711Error, Mode as HxMode};
 use crate::sensors::WeightReading;
 use crate::sensors::WeightSensor;
-use tracing::{info, error, trace};
-
-
-type HxError = Hx711Error<rppal::spi::Error>;
-
+use crate::sensors::WeightSensorCalibration;
+use hx711_spi::{Hx711, Hx711Error, Mode as HxMode};
+use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
+use tracing::{error, info, trace};
 
 pub struct SensorHx711 {
     hx711: Hx711<Spi>,
@@ -21,7 +17,7 @@ impl SensorHx711 {
             Ok(s) => s,
             Err(e) => return Err(format!("Failed to initialize SPI: {:?}", e)),
         };
-        
+
         let mut hx711 = Hx711::new(spi);
 
         match hx711.reset() {
@@ -33,7 +29,9 @@ impl SensorHx711 {
         loop {
             match hx711.set_mode(HxMode::ChAGain128) {
                 Ok(_) => break, // success; mode applied for the next conversion
-                Err(Hx711Error::DataNotReady) => std::thread::sleep(std::time::Duration::from_millis(20)),
+                Err(Hx711Error::DataNotReady) => {
+                    std::thread::sleep(std::time::Duration::from_millis(20))
+                }
                 Err(e) => return Err(format!("Failed to set HX711 mode: {:?}", e)),
             }
         }
@@ -47,7 +45,26 @@ impl WeightSensor for SensorHx711 {
         "SensorHX711".to_string()
     }
 
-    fn get_raw(&mut self) -> Result<WeightReading, String> {
+    fn get_weight_reading(
+        &mut self,
+        calibration: &WeightSensorCalibration,
+    ) -> Result<WeightReading, String> {
+        let read_result = self.get_raw();
+        let raw = match read_result {
+            Ok(value) => value,
+            Err(e) => {
+                return Err(format!("Could not get weight reading in grams: {:?}", e));
+            }
+        };
+
+        let grams = SensorHx711::grams_from_raw(raw, calibration.clone()).round() as i32;
+
+        trace!("grams={grams}");
+        let reading = WeightReading { grams };
+        Ok(reading)
+    }
+
+    fn get_raw(&mut self) -> Result<i32, String> {
         let hx711 = &mut self.hx711;
         let read_result = hx711.read(); // 24-bit two's-complement, sign-extended
         let raw = match read_result {
@@ -57,9 +74,12 @@ impl WeightSensor for SensorHx711 {
             }
         };
         trace!("raw={raw}");
-        let reading = WeightReading {
-            raw, 
-        };
-        Ok(reading)
+        Ok(raw)
+    }
+}
+
+impl SensorHx711 {
+    fn grams_from_raw(raw: i32, cal: WeightSensorCalibration) -> f32 {
+        ((raw as f32 - cal.tare_raw as f32) - cal.offset) / cal.scale
     }
 }
