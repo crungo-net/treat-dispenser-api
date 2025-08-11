@@ -15,7 +15,12 @@ pub struct SensorHx711 {
 
 impl SensorHx711 {
     pub fn new(_spi_bus: Bus, _slave_select: SlaveSelect) -> Result<Self, String> {
-        let spi = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode1).unwrap();
+        let spi_result = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1_000_000, Mode::Mode1);
+
+        let spi = match spi_result {
+            Ok(s) => s,
+            Err(e) => return Err(format!("Failed to initialize SPI: {:?}", e)),
+        };
         
         let mut hx711 = Hx711::new(spi);
 

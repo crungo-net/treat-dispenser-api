@@ -79,7 +79,7 @@ pub trait PowerSensor: Send + Sync {
     fn get_power_reading(&mut self) -> Result<PowerReading, String>;
 }
 
-pub trait WeightSensor {
+pub trait WeightSensor: Send {
     fn get_name(&self) -> String;
     fn get_raw(&mut self) -> Result<WeightReading, String>;
 }

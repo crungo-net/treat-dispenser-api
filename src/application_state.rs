@@ -10,7 +10,6 @@ use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, warn, info};
 
-use crate::sensors::sensor_hx711::SensorHx711;
 use crate::sensors::Calibration;
 use crate::sensors::WeightReading;
 use crate::sensors::WeightSensor;
@@ -59,8 +58,7 @@ pub struct ApplicationState {
     pub power_sensor_mutex: Option<Arc<Mutex<Box<dyn PowerSensor>>>>,
     pub power_readings_tx: tokio::sync::watch::Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
-    //pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
-    pub weight_sensor_mutex: Option<Arc<Mutex<SensorHx711>>>,
+    pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
     pub weight_readings_tx : tokio::sync::watch::Sender<WeightReading>,
     pub calibration_in_progress: Arc<AtomicBool>,
     pub calibration_tx: tokio::sync::watch::Sender<Calibration>,
@@ -119,13 +117,18 @@ impl ApplicationState {
             status = DispenserStatus::Operational;
         }
 
-        let weight_sensor = match SensorHx711::new(Bus::Spi0, SlaveSelect::Ss0) {
+        let weight_sensor_env =
+            std::env::var("WEIGHT_SENSOR").unwrap_or_else(|_| "SensorMock".to_string());
+
+        let weight_sensor_result = init_weight_sensor(weight_sensor_env, &app_config);
+        let weight_sensor = match weight_sensor_result {
             Ok(sensor) => sensor,
             Err(e) => {
                 error!("Failed to initialize weight sensor: {}", e);
                 std::process::exit(1)
             }
         };
+
         let weight_sensor_mutex = Some(Arc::new(Mutex::new(weight_sensor)));
         let (weight_readings_tx, _weight_readings_rx) =
             tokio::sync::watch::channel(WeightReading::default());
@@ -153,6 +156,17 @@ impl ApplicationState {
             calibration_rx,
         }
     }
+}
+
+fn init_weight_sensor(
+    sensor_name: String,
+    _app_config: &AppConfig,
+) -> Result<Box<dyn WeightSensor>, String> {
+    match sensor_name.as_str() {
+        "SensorHX711" => return Ok(Box::new(crate::sensors::sensor_hx711::SensorHx711::new(Bus::Spi0, SlaveSelect::Ss0)?)),
+        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())), 
+        _ => return Err(format!("Unsupported weight sensor type '{}'", sensor_name)),
+    };
 }
 
 fn init_power_sensor(
