@@ -35,6 +35,8 @@ pub enum DispenserStatus {
     NoGpio,
     Cooldown,
     Cancelled,
+    Calibrating,
+    CalibrationFailed,
 }
 
 impl fmt::Display for DispenserStatus {

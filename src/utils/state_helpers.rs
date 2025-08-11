@@ -21,7 +21,6 @@ pub fn set_dispenser_status(
     status: application_state::DispenserStatus,
 ) {
     let mut state_guard = state.blocking_lock();
-    debug!("Lock acquired on DispenserState");
 
     state_guard.status = status.clone();
     info!("Dispenser status set to {:?}", status);
@@ -33,7 +32,6 @@ pub async fn set_dispenser_status_async(
     status: DispenserStatus,
 ) {
     let mut state_guard = state.lock().await;
-    debug!("Lock acquired on DispenserState");
 
     state_guard.status = status.clone();
     info!("Dispenser status set to {:?}", status);

@@ -45,7 +45,7 @@ pub async fn handle_login(
         let token_result = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret("supersecret".as_ref()),
+            &EncodingKey::from_secret("supersecret".as_ref()), // todo: read from env
         );
         let token = match token_result {
             Ok(t) => t,

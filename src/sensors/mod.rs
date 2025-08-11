@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 pub mod sensor_ina219;
 pub mod sensor_mock;
 pub mod sensor_hx711;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Calibration {
     /// Scale factor for converting raw readings to grams
     pub scale: f32,

@@ -3,7 +3,7 @@ use rppal::spi::{Bus, Mode, SlaveSelect, Spi};
 use hx711_spi::{Hx711, Hx711Error, Mode as HxMode};
 use crate::sensors::WeightReading;
 use crate::sensors::WeightSensor;
-use tracing::{info, error};
+use tracing::{info, error, trace};
 
 
 type HxError = Hx711Error<rppal::spi::Error>;
@@ -51,7 +51,7 @@ impl WeightSensor for SensorHx711 {
                 return Err(format!("HX711 read error: {:?}", e));
             }
         };
-        info!("raw={raw}");
+        trace!("raw={raw}");
         let reading = WeightReading {
             raw, 
         };
