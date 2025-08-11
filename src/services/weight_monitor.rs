@@ -101,19 +101,11 @@ pub async fn calibrate_weight_sensor(
     }
 
     calibration_in_progress.store(false, Ordering::Relaxed);
-    samples.sort_unstable();
 
-    // calculate trimmed mean (trim off 20% from both ends)
-    let k = (samples.len() as f32 * 0.2).round() as usize; // this is how many samples to trim from each end
-
-    // subslice that excludes lowest k and highest k samples, 
-    // ensuring we have at least one sample left after trimming
-    let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)];
-    let sum: i64 = slice.iter().map(|v| v.raw as i64).sum();
-    let mean_raw = (sum as f32 / slice.len() as f32).round() as i32;
+    let mean_raw = calculate_trimmed_mean(&mut samples);
 
     // Calculate the scale factor
-    let mut scale = (mean_raw - calibration.tare_raw) as f32 / known_mass_grams;
+    let mut scale = (mean_raw - calibration.tare_raw as f32)  / known_mass_grams;
     if scale < 0.0 { scale = scale.abs();}
 
     calibration.scale = scale;
@@ -176,18 +168,9 @@ pub async fn tare_weight_sensor(
     }
 
     calibration_in_progress.store(false, Ordering::Relaxed);
-    samples.sort_unstable();
+    let tare_raw = calculate_trimmed_mean(&mut samples);
 
-    // calculate trimmed mean (trim off 20% from both ends)
-    let k = (samples.len() as f32 * 0.2).round() as usize; // this is how many samples to trim from each end
-
-    // subslice that excludes lowest k and highest k samples, 
-    // ensuring we have at least one sample left after trimming
-    let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)];
-    let sum: i64 = slice.iter().map(|v| v.raw as i64).sum();
-    let tare_raw = (sum as f32 / slice.len() as f32).round() as i32;
-
-    calibration.tare_raw = tare_raw;
+    calibration.tare_raw = tare_raw as i32;
 
     let calibration_publish_result = calibration_tx.send(calibration.clone());
     if calibration_publish_result.is_err() {
@@ -215,4 +198,19 @@ pub struct CalibrationResponse {
 #[derive(Deserialize)]
 pub struct CalibrationRequest {
     pub known_mass_grams: f32,
+}
+
+fn calculate_trimmed_mean(samples: &mut [WeightReading]) -> f32 {
+    samples.sort_unstable();
+
+    // calculate trimmed mean (trim off 20% from both ends)
+    let k = (samples.len() as f32 * 0.2).round() as usize; // this is how many samples to trim from each end
+
+    // subslice that excludes lowest k and highest k samples, 
+    // ensuring we have at least one sample left after trimming
+    let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)];
+    let sum: i64 = slice.iter().map(|v| v.raw as i64).sum();
+    let trimmed_mean = (sum as f32 / slice.len() as f32).round() as i32;
+
+    trimmed_mean as f32
 }
