@@ -3,6 +3,7 @@ use rppal::spi::Bus;
 use rppal::spi::SlaveSelect;
 use serde::Serialize;
 use std::fmt;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
@@ -10,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{error, warn, info};
 
 use crate::sensors::sensor_hx711::SensorHx711;
+use crate::sensors::Calibration;
 use crate::sensors::WeightReading;
 use crate::sensors::WeightSensor;
 use crate::AppConfig;
@@ -58,6 +60,9 @@ pub struct ApplicationState {
     //pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
     pub weight_sensor_mutex: Option<Arc<Mutex<SensorHx711>>>,
     pub weight_readings_tx : tokio::sync::watch::Sender<WeightReading>,
+    pub calibration_in_progress: Arc<AtomicBool>,
+    pub calibration_tx: tokio::sync::watch::Sender<Calibration>,
+    pub calibration_rx: tokio::sync::watch::Receiver<Calibration>,
 }
 
 impl ApplicationState {
@@ -123,6 +128,8 @@ impl ApplicationState {
         let (weight_readings_tx, _weight_readings_rx) =
             tokio::sync::watch::channel(WeightReading::default());
 
+        let (calibration_tx, calibration_rx) = tokio::sync::watch::channel(Calibration::default());
+
         Self {
             gpio,
             status,
@@ -139,6 +146,9 @@ impl ApplicationState {
             weight_sensor_mutex,
             weight_readings_tx,
             motor_cancel_token: None,
+            calibration_in_progress: Arc::new(AtomicBool::new(false)),
+            calibration_tx,
+            calibration_rx,
         }
     }
 }

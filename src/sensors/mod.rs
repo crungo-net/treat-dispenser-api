@@ -3,6 +3,28 @@ pub mod sensor_mock;
 pub mod sensor_hx711;
 
 #[derive(Clone, Debug)]
+pub struct Calibration {
+    /// Scale factor for converting raw readings to grams
+    pub scale: f32,
+
+    /// Offset to apply to raw readings
+    pub offset: f32,
+
+    /// Raw tare value to subtract from readings
+    pub tare_raw: i32, 
+}
+
+impl Default for Calibration {
+    fn default() -> Self {
+        Calibration {
+            scale: 1.0,
+            offset: 0.0,
+            tare_raw: 0,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct PowerReading {
     pub bus_voltage_volts: f32,
     pub current_amps: f32,
@@ -29,15 +51,15 @@ impl Default for PowerReading {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Ord, PartialEq, Eq, PartialOrd)]
 pub struct WeightReading {
-    pub weight_grams: i32,
+    pub raw: i32,
 }
 
 impl WeightReading {
     pub fn dummy() -> Self {
         WeightReading {
-            weight_grams: -1,
+            raw: -1,
         }
     }
 }
@@ -45,7 +67,7 @@ impl WeightReading {
 impl Default for WeightReading {
     fn default() -> Self {
         WeightReading {
-            weight_grams: 0,
+            raw: 0,
         }
     }
 }
@@ -57,5 +79,5 @@ pub trait PowerSensor: Send + Sync {
 
 pub trait WeightSensor {
     fn get_name(&self) -> String;
-    fn get_weight(&mut self) -> Result<WeightReading, String>;
+    fn get_raw(&mut self) -> Result<WeightReading, String>;
 }

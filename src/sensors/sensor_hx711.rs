@@ -8,6 +8,7 @@ use tracing::{info, error};
 
 type HxError = Hx711Error<rppal::spi::Error>;
 
+
 pub struct SensorHx711 {
     hx711: Hx711<Spi>,
 }
@@ -41,7 +42,7 @@ impl WeightSensor for SensorHx711 {
         "HX711".to_string()
     }
 
-    fn get_weight(&mut self) -> Result<WeightReading, String> {
+    fn get_raw(&mut self) -> Result<WeightReading, String> {
         let hx711 = &mut self.hx711;
         let read_result = hx711.read(); // 24-bit two's-complement, sign-extended
         let raw = match read_result {
@@ -52,7 +53,7 @@ impl WeightSensor for SensorHx711 {
         };
         info!("raw={raw}");
         let reading = WeightReading {
-            weight_grams: raw, // Replace with actual conversion logic if needed
+            raw, 
         };
         Ok(reading)
     }
