@@ -64,6 +64,7 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
         .route("/dispense", post(routes::dispense::dispense_treat))
         .route("/cancel", post(routes::dispense::cancel_dispense))
         .route("/tare", post(routes::sensors::tare_weight_sensor))
+        .route("/calibrate", post(routes::sensors::calibrate_weight_sensor))
         .layer(axum::middleware::from_fn(
             middleware::auth::token_auth_middleware,
         ));

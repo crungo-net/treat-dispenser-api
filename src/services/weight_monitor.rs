@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tokio::time::{interval, MissedTickBehavior};
 use tracing::{info, error, debug, trace};
 use crate::application_state::{self, ApplicationState};
-use crate::sensors::{Calibration, WeightReading, WeightSensor};
+use crate::sensors::{Calibration, WeightReading};
 use crate::utils::state_helpers;
 
 
@@ -63,7 +63,7 @@ pub async fn start_weight_monitoring_thread(
 pub async fn calibrate_weight_sensor(
     app_state: Arc<Mutex<ApplicationState>>,
     known_mass_grams: f32,
-) -> Result<(), String> {
+) -> Result<CalibrationResponse, String> {
     let app_state = Arc::clone(&app_state);
 
     let calibration_in_progress = app_state.lock().await.calibration_in_progress.clone();
@@ -118,12 +118,16 @@ pub async fn calibrate_weight_sensor(
 
     calibration.scale = scale;
     let _ = calibration_tx.send(calibration.clone());
-    Ok(())
+
+    Ok(CalibrationResponse {
+        msg: format!("Calibration successful. Scale factor: {:.4}", scale),
+        calibration,
+    })
 }
 
 pub async fn tare_weight_sensor(
     app_state: Arc<Mutex<ApplicationState>>,
-) -> Result<TareResponse, String> {
+) -> Result<CalibrationResponse, String> {
     let app_state = Arc::clone(&app_state);
 
     let calibration_in_progress = app_state.lock().await.calibration_in_progress.clone();
@@ -198,12 +202,17 @@ pub async fn tare_weight_sensor(
         application_state::DispenserStatus::Operational,
     ).await;
 
-    Ok(TareResponse { msg: ("Tare successful.".to_string()), calibration })
+    Ok(CalibrationResponse { msg: ("Tare successful.".to_string()), calibration })
 }
 
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TareResponse {
+#[derive(Clone, Debug, Serialize)]
+pub struct CalibrationResponse {
     pub msg: String,
     pub calibration: Calibration,
+}
+
+#[derive(Deserialize)]
+pub struct CalibrationRequest {
+    pub known_mass_grams: f32,
 }
