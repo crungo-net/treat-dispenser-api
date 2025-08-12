@@ -58,13 +58,13 @@ impl WeightSensor for SensorHx711 {
             }
         };
 
-        let grams = SensorHx711::grams_from_raw(raw, calibration.clone()).round() as i32;
+        let mut grams = SensorHx711::grams_from_raw(raw, calibration.clone()).round() as i32;
 
         //trace!("grams={grams}");
-        if grams < 0 || grams < 1 {
-            // clamp to zero if negative or very small
-            return Ok(WeightReading { grams: 0 });
-        }
+        if grams.abs() < 1 { 
+            grams = 0; 
+        } // 1 g deadband
+
         let reading = WeightReading { grams };
         Ok(reading)
     }
