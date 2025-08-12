@@ -18,6 +18,7 @@ A simple REST API for controlling a treat dispenser, built with [Axum](https://g
 - [Logging](#logging)
 - [Code Structure](#code-structure)
 - [Power Monitoring (INA219 Support)](#power-monitoring-ina219-support)
+- [Weight Sensor (HX711 Support)](#weight-sensor-hx711-support)
 - [Testing](#testing)
 - [Continuous Integration (CI)](#continuous-integration-ci)
 - [GitLab and GitHub: Why Both?](#gitlab-and-github-why-both)
@@ -30,6 +31,7 @@ A simple REST API for controlling a treat dispenser, built with [Axum](https://g
 - **Secure access with JWT authentication:** Only authorized users can dispense treats or access sensitive endpoints.
 - **Real-time status monitoring:** Instantly check dispenser health, motor status, and uptime from any device.
 - **Live power and current monitoring:** View live voltage, current, and power usage for hardware safety and diagnostics.
+- **Weight monitoring with HX711 load cell:** Live grams remaining exposed in `/status`, with tare and scale calibration via `/tare` and `/calibrate` (calibration persisted on disk).
 - **Automatic jam and error detection:** The system detects jams, high current, and hardware errors, and can cancel operations to protect the device.
 - **Supports multiple stepper motors:** Easily switch between 28BYJ-48, NEMA-14, or mock motors for testing or different hardware setups.
 - **Configurable cooldown and safety limits:** Prevents overheating and hardware damage with customizable cooldowns and current limits.
@@ -51,8 +53,9 @@ STL files for 3D printing the dispenser hardware are available in the `3d_printi
 This project is designed to work with the following hardware:
 
 - **NEMA14 stepper motor** (with A4988 or compatible driver)
-- **INA219 sensor** (for current, voltage, and power monitoring via I2C)
-- **Raspberry Pi** (recommended), or any microcontroller or single-board computer with GPIO and I2C support
+- **INA219 sensor** (optional; for current, voltage, and power monitoring via I2C)
+- **Load cell + HX711** (optional; for weight-based treat level monitoring)
+- **Raspberry Pi** (recommended), or any microcontroller or ARM64 single-board computer with GPIO and I2C support
 
 <p align="center">
   <img src="docs/treat_dispenser_schematic.png" alt="Treat Dispenser Wiring Diagram" width="600" />
@@ -79,7 +82,6 @@ chmod +x setup_dev_env.sh
    ```sh
    sudo mkdir -p /etc/treat-dispenser-api
    sudo cp config/config.yaml /etc/treat-dispenser-api/
-   sudo cp config/nema14_config.yaml /etc/treat-dispenser-api/
    ```
 
 3. **Build and install the binary**
@@ -124,9 +126,6 @@ The application uses a multi-layered approach to configuration:
 
 1. **Environment Variables**:  
    Basic configuration is loaded from environment variables or a `.env` file.  
-   - `DISPENSER_JWT_SECRET`: Secret key for signing JWT tokens. Default: `supersecret` (change in production!).
-   - `MOTOR_TYPE`: Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`). Default: `Stepper28BYJ48`.
-   - `RUST_LOG`: Log level (`trace`, `debug`, `info`, `warn`, `error`). Default: `info`.
 
 2. **Configuration File**:  
    The main configuration file is expected at `/etc/treat-dispenser-api/config.yaml` (when using the `.deb` package).  
@@ -159,12 +158,13 @@ The application uses a multi-layered approach to configuration:
 
 ## Environment Variables
 
-| Variable              | Description                                 | Default         |
-|----------------------|---------------------------------------------|-----------------|
-| `DISPENSER_JWT_SECRET` | Secret key for signing JWT tokens           | `supersecret`   |
-| `RUST_LOG`           | Log level (`trace`, `debug`, `info`, `warn`, `error`) | `info`          |
-| `MOTOR_TYPE`         | Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`) | `Stepper28BYJ48` |
-| `POWER_SENSOR`       | Power sensor implementation to use (`SensorINA219`, `SensorMock`) | `StepperINA219` |
+| Variable               | Description                                                                 | Default         |
+|-----------------------|-----------------------------------------------------------------------------|-----------------|
+| `DISPENSER_JWT_SECRET`| Secret key for signing JWT tokens                                           | `supersecret`   |
+| `RUST_LOG`            | Log level (`trace`, `debug`, `info`, `warn`, `error`)                        | `info`          |
+| `MOTOR_TYPE`          | Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`)     | `Stepper28BYJ48`|
+| `POWER_SENSOR`        | Power sensor implementation to use (`SensorINA219`, `SensorMock`)           | `SensorINA219`  |
+| `WEIGHT_SENSOR`       | Weight sensor implementation to use (`SensorHX711`, `SensorMock`)           | `SensorMock`    |
 
 Example `.env` file:
 ```
@@ -172,6 +172,7 @@ DISPENSER_JWT_SECRET=your_jwt_secret
 RUST_LOG=info
 MOTOR_TYPE=StepperNema14
 POWER_SENSOR=SensorINA219
+WEIGHT_SENSOR=SensorHX711
 ```
 
 ## Justfile Commands
@@ -262,7 +263,7 @@ _Response:_
 
 ### `GET /status`
 
-Returns detailed health status information including GPIO availability, motor status, and uptime.
+Returns detailed health status information including GPIO availability, motor status, uptime, power readings, and current weight reading (`remaining_treats_grams`).
 
 **Example:**
 ```sh
@@ -303,6 +304,43 @@ curl -X POST http://localhost:3500/login \
 - Use the returned JWT token in the `Authorization` header as `Bearer <JWT_TOKEN>` for all protected endpoints (e.g., `/dispense`, `/cancel`).
 - The default credentials are set in the config file (`admin_user`, `admin_password`). Change these for production.
 - The token expires 7 days after provisioning.
+
+---
+
+### `POST /tare`
+
+Tares (zeros) the weight sensor. Run this with an empty platform.  
+**Requires** an `Authorization` header with a bearer token.
+
+**Example:**
+```sh
+curl -X POST http://localhost:3500/tare \
+  -H "Authorization: Bearer <YOUR_TOKEN>"
+```
+
+_Response:_ JSON object containing a human-readable message and the updated calibration state.
+
+---
+
+### `POST /calibrate`
+
+Calibrates the weight sensor using a known mass placed on the platform. Call after a successful `/tare`.  
+**Requires** an `Authorization` header with a bearer token.
+
+**Request Body:**
+```json
+{ "known_mass_grams": 100.0 }
+```
+
+**Example:**
+```sh
+curl -X POST http://localhost:3500/calibrate \
+  -H "Authorization: Bearer <YOUR_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"known_mass_grams": 100.0}'
+```
+
+_Response:_ JSON object containing a human-readable message and the updated calibration state (including the computed scale factor).
 
 ## Hardware Integration
 
@@ -371,12 +409,14 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
     - `status.rs` – Status and health check logic
     - `auth.rs` – Authentication and JWT logic
     - `power_monitor.rs` – Power monitoring and alert logic
+    - `weight_monitor.rs` – Weight sampling, tare/scale calibration, and calibration persistence
 
 - `src/routes/` – API route handlers (HTTP endpoints)
     - `mod.rs` – Exports route modules
     - `dispense.rs` – Dispense endpoint handler
     - `status.rs` – Status endpoint handler
     - `auth.rs` – Login endpoint handler
+    - `sensors.rs` – Weight sensor tare and calibration handlers
 
 - `src/middleware/` – API middleware (e.g., authentication)
     - `mod.rs` – Exports middleware modules
@@ -385,6 +425,7 @@ The motor type can be configured using the `MOTOR_TYPE` environment variable (se
 - `src/sensors/` – Sensor integration
     - `mod.rs` – Exports sensor modules
     - `sensor_ina219.rs` – INA219 power/current/voltage monitoring via I2C
+    - `sensor_hx711.rs` – HX711 load-cell support over SPI (via `hx711_spi` and `rppal`)
     - `sensor_mock.rs` - Mock sensor implementation for testing
 
 - `src/utils/` – Utility functions and helpers
@@ -434,6 +475,35 @@ power_monitor:
   calibration_amps: 1.0
 ```
 *(Note: Actual config is currently hardcoded and yaml support will be added in future releases; see `sensors/sensor_ina219.rs` and `services/power_monitor.rs` for details.)*
+
+## Weight Sensor (HX711 Support)
+
+The API can read a load cell through an HX711 ADC using SPI via the `hx711_spi` crate and `rppal`:
+
+- Uses Raspberry Pi SPI0 (Bus 0, CE0), SPI mode 1, ~1MHz.
+- Typical wiring (verify with your board and the `hx711_spi` docs):
+  - HX711 `DOUT` → Raspberry Pi `MISO` (SPI0 MISO)
+  - HX711 `PD_SCK` → Raspberry Pi `MOSI` (SPI0 SCLK)
+- Enable with: `WEIGHT_SENSOR=SensorHX711` (default is `SensorMock`).
+- Current weight reading is exposed in `/status` as `remaining_treats_grams`.
+- Calibration is persisted to `/etc/treat-dispenser-api/weight_sensor_calibration.json`.
+
+### Calibration Workflow
+
+1. Ensure the platform is empty, then tare:
+   ```sh
+   curl -X POST http://localhost:3500/tare \
+     -H "Authorization: Bearer <YOUR_TOKEN>"
+   ```
+2. Place a known mass (e.g., 100g) on the platform, then calibrate:
+   ```sh
+   curl -X POST http://localhost:3500/calibrate \
+     -H "Authorization: Bearer <YOUR_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{"known_mass_grams": 100.0}'
+   ```
+
+Both endpoints return a message and the updated calibration values. Sampling pauses during calibration and automatically resumes afterward.
 
 ## Testing
 
@@ -517,7 +587,6 @@ GitLab is configured to automatically mirror (push) all changes to GitHub using 
 
 Planned features and improvements for future releases:
 
-- **Treat availability detection:** Use load cells to detect the weight of treats and determine if the dispenser is empty or low.
 - **Camera integration:** Add support for a camera to monitor the dispenser or take photos/videos during dispensing.
 - **Play Mexican jingles:** Play Mexican jingles through speakers for one of my bunnies (one of whom grew up with and loves them).
 
