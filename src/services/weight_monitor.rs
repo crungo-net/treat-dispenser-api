@@ -30,7 +30,7 @@ pub async fn start_weight_monitoring_thread(app_state: Arc<Mutex<ApplicationStat
                     info!("Starting weight monitoring thread");
 
                     // If RATE=L (10 SPS): period ~100 ms. If RATE=H (80 SPS): ~12–15 ms.
-                    let mut tick = interval(Duration::from_millis(100));
+                    let mut tick = interval(Duration::from_millis(15));
                     tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
                     loop {
@@ -83,19 +83,24 @@ pub async fn calibrate_weight_sensor(
     let calibration_in_progress = app_state.lock().await.calibration_in_progress.clone();
     calibration_in_progress.store(true, Ordering::Relaxed);
 
+    state_helpers::set_dispenser_status_async(
+        &app_state,
+        application_state::DispenserStatus::Calibrating,
+    ).await;
+
     // Get the current calibration state
     let calibration_rx = app_state.lock().await.calibration_rx.clone();
     let calibration_tx = app_state.lock().await.calibration_tx.clone();
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
-    let mut samples: Vec<i32> = Vec::with_capacity(30);
+    let mut samples: Vec<i32> = Vec::with_capacity(300);
 
     if let Some(sensor_mutex) = sensor_mutex_opt {
         // get approx 3 seconds of samples from weight sensor
         info!("Calibrating weight sensor, please wait...");
 
-        for _ in 0..30 {
+        for _ in 0..300 {
             let read_result = {
                 let mut sensor = sensor_mutex.lock().await;
                 sensor.get_raw()
@@ -103,14 +108,18 @@ pub async fn calibrate_weight_sensor(
             match read_result {
                 Ok(reading) => {
                     samples.push(reading);
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    tokio::time::sleep(Duration::from_millis(15)).await;
                 }
                 Err(e) => {
-                    error!("Failed to read weight during calibration: {}", e);
+                    trace!("Failed to read weight during calibration: {}", e);
                 }
             }
         }
     } else {
+        state_helpers::set_dispenser_status_async(
+            &app_state,
+            application_state::DispenserStatus::CalibrationFailed,
+        ).await;
         return Err("No weight sensor available".to_string());
     }
 
@@ -131,6 +140,11 @@ pub async fn calibrate_weight_sensor(
     if let Err(e) = save_calibration_to_file(&calibration) {
         error!("Failed to save calibration to file: {}", e);
     }
+
+    state_helpers::set_dispenser_status_async(
+        &app_state,
+        application_state::DispenserStatus::Operational,
+    ).await;
 
     Ok(CalibrationResponse {
         msg: format!("Calibration successful. Scale factor: {:.4}", scale),
@@ -155,8 +169,7 @@ pub async fn tare_weight_sensor(
     state_helpers::set_dispenser_status_async(
         &app_state,
         application_state::DispenserStatus::Calibrating,
-    )
-    .await;
+    ).await;
 
     // Get the current calibration state
     let calibration_rx = app_state.lock().await.calibration_rx.clone();
@@ -164,13 +177,13 @@ pub async fn tare_weight_sensor(
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
-    let mut samples: Vec<i32> = Vec::with_capacity(30);
+    let mut samples: Vec<i32> = Vec::with_capacity(300);
 
     if let Some(sensor_mutex) = sensor_mutex_opt {
         // get approx 3 seconds of samples from weight sensor
         info!("Taring weight sensor, please wait...");
 
-        for _ in 0..30 {
+        for _ in 0..300 {
             let read_result = {
                 let mut sensor = sensor_mutex.lock().await;
                 sensor.get_raw()
@@ -178,10 +191,10 @@ pub async fn tare_weight_sensor(
             match read_result {
                 Ok(reading) => {
                     samples.push(reading);
-                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    tokio::time::sleep(Duration::from_millis(15)).await;
                 }
                 Err(e) => {
-                    error!("Failed to read weight during tare: {}", e);
+                    trace!("Failed to read weight during tare: {}", e);
                 }
             }
         }
@@ -190,8 +203,7 @@ pub async fn tare_weight_sensor(
         state_helpers::set_dispenser_status_async(
             &app_state,
             application_state::DispenserStatus::CalibrationFailed,
-        )
-        .await;
+        ).await;
         return Err("No weight sensor available".to_string());
     }
 
@@ -211,8 +223,7 @@ pub async fn tare_weight_sensor(
     state_helpers::set_dispenser_status_async(
         &app_state,
         application_state::DispenserStatus::Operational,
-    )
-    .await;
+    ).await;
 
     Ok(CalibrationResponse {
         msg: ("Tare successful.".to_string()),
