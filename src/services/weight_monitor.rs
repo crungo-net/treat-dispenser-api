@@ -108,12 +108,12 @@ pub async fn calibrate_weight_sensor(
             match read_result {
                 Ok(reading) => {
                     samples.push(reading);
-                    tokio::time::sleep(Duration::from_millis(15)).await;
                 }
                 Err(e) => {
                     trace!("Failed to read weight during calibration: {}", e);
                 }
             }
+            tokio::time::sleep(Duration::from_millis(15)).await;
         }
     } else {
         state_helpers::set_dispenser_status_async(
@@ -191,12 +191,12 @@ pub async fn tare_weight_sensor(
             match read_result {
                 Ok(reading) => {
                     samples.push(reading);
-                    tokio::time::sleep(Duration::from_millis(15)).await;
                 }
                 Err(e) => {
                     trace!("Failed to read weight during tare: {}", e);
                 }
             }
+            tokio::time::sleep(Duration::from_millis(15)).await;
         }
     } else {
         calibration_in_progress.store(false, Ordering::Relaxed);

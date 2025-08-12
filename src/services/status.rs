@@ -106,5 +106,5 @@ pub struct StatusResponse {
     pub motor_voltage_volts: Option<f32>,
     pub motor_current_amps: Option<f32>,
     pub motor_power_watts: Option<f32>,
-    pub remaining_treats_grams: i32,
+    pub remaining_treats_grams: f32,
 }

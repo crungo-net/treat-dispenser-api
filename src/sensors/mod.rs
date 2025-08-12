@@ -53,20 +53,20 @@ impl Default for PowerReading {
     }
 }
 
-#[derive(Clone, Debug, Ord, PartialEq, Eq, PartialOrd)]
+#[derive(Clone, Debug)]
 pub struct WeightReading {
-    pub grams: i32,
+    pub grams: f32,
 }
 
 impl WeightReading {
     pub fn dummy() -> Self {
-        WeightReading { grams: -1 }
+        WeightReading { grams: -1.0 }
     }
 }
 
 impl Default for WeightReading {
     fn default() -> Self {
-        WeightReading { grams: 0 }
+        WeightReading { grams: 0.0 }
     }
 }
 
