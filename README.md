@@ -488,6 +488,8 @@ The API can read a load cell through an HX711 ADC using SPI via the `hx711_spi` 
 - Current weight reading is exposed in `/status` as `remaining_treats_grams`.
 - Calibration is persisted to `/etc/treat-dispenser-api/weight_sensor_calibration.json`.
 
+This project was developed with the Adafruit HX711 board.
+
 ### Calibration Workflow
 
 1. Ensure the platform is empty, then tare:
