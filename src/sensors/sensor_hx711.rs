@@ -58,7 +58,7 @@ impl WeightSensor for SensorHx711 {
             }
         };
 
-        let mut grams = SensorHx711::grams_from_raw(raw, calibration.clone()).round() as i32;
+        let mut grams = SensorHx711::grams_from_raw(raw, &calibration).round() as i32;
 
         //trace!("grams={grams}");
         if grams.abs() < 1 { 
@@ -84,7 +84,7 @@ impl WeightSensor for SensorHx711 {
 }
 
 impl SensorHx711 {
-    fn grams_from_raw(raw: i32, cal: WeightSensorCalibration) -> f32 {
+    fn grams_from_raw(raw: i32, cal: &WeightSensorCalibration) -> f32 {
         ((raw as f32 - cal.tare_raw as f32) - cal.offset) / cal.scale
     }
 }
