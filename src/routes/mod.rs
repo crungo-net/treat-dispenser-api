@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod dispense;
+pub mod sensors;
 pub mod status;
 
 use axum::response::IntoResponse;

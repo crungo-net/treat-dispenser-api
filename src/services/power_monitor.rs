@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tracing::{debug, error, warn, info};
+use tracing::{debug, error, info, warn};
 
 use crate::application_state;
 use crate::sensors::PowerReading;
@@ -87,14 +87,15 @@ pub async fn start_power_monitoring_thread(
                                 avg_current
                             );
 
-
                             if avg_current > current_limit {
                                 warn!("High average current detected: {} A", avg_current);
                                 warn!("Readings: {:?}", power_monitor.get_readings());
                                 let state_guard = app_state_clone.lock().await;
 
                                 if let Some(cancel_token) = &state_guard.motor_cancel_token {
-                                    info!("Cancelling ongoing motor operations due to high current.");
+                                    info!(
+                                        "Cancelling ongoing motor operations due to high current."
+                                    );
                                     cancel_token.cancel();
                                 }
                             }
@@ -114,10 +115,9 @@ pub async fn start_power_monitoring_thread(
     });
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::*; 
+    use super::*;
 
     #[test]
     fn test_calculate_average_power_and_current() {
@@ -131,7 +131,7 @@ mod tests {
             bus_voltage_volts: 12.0,
             current_amps: 2.0,
             power_watts: 24.0,
-        }); 
+        });
         assert_eq!(monitor.get_average_power(), 18.0);
         assert_eq!(monitor.get_average_current(), 1.5);
     }

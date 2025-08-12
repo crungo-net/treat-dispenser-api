@@ -1,16 +1,17 @@
 use reqwest::Client;
+use treat_dispenser_api::services::weight_monitor::start_weight_monitoring_thread;
 use std::net::SocketAddr;
-use std::sync::Once;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::Once;
 use tokio::net::TcpListener;
+use tokio::sync::Mutex;
+use tracing::info;
 use treat_dispenser_api::application_state::ApplicationState;
 use treat_dispenser_api::build_app;
-use treat_dispenser_api::services::status::StatusResponse;
 use treat_dispenser_api::services::power_monitor::start_power_monitoring_thread;
-use tracing::info;
+use treat_dispenser_api::services::status::StatusResponse;
 
-async fn setup(config: Option<Box<&str>>) -> (SocketAddr, Client , Arc<Mutex<ApplicationState>>) {
+async fn setup(config: Option<Box<&str>>) -> (SocketAddr, Client, Arc<Mutex<ApplicationState>>) {
     dotenv::from_filename(".env.test").ok();
     init_logging();
     let (addr, app_state) = start_server(config).await;
@@ -37,8 +38,9 @@ async fn wait_for_server(millis: u64) {
 }
 
 async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<ApplicationState>>) {
-    let config_str = config.unwrap_or_else(|| {Box::new(
-        r#"
+    let config_str = config.unwrap_or_else(|| {
+        Box::new(
+            r#"
         api:
           listen_address: "127.0.0.1:0"
           motor_cooldown_ms: 5000
@@ -46,7 +48,8 @@ async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<Appli
         admin_password: "password"
         motor_cooldown_ms: 5000
         motor_current_limit_amps: 0.7
-        "#)
+        "#,
+        )
     });
     info!("Using config: {}", config_str);
 
@@ -171,6 +174,20 @@ async fn test_power_monitoring_thread() {
 }
 
 #[tokio::test]
+async fn test_weight_monitoring_thread() {
+    let (addr, client, app_state) = setup(None).await;
+    start_weight_monitoring_thread(app_state).await;
+    wait_for_server(5000).await; // Wait for server to be ready
+
+    let response = get_with_auth(&client, addr, "/status").await;
+    assert!(response.status().is_success());
+
+    let status_json = response.json::<StatusResponse>().await.unwrap();
+
+    assert_eq!(status_json.remaining_treats_grams, 12345);
+}
+
+#[tokio::test]
 async fn test_dispense_endpoint_unauthorized() {
     let (addr, client, _) = setup(None).await;
     let req = client.post(format!("http://{}/dispense", addr));
@@ -207,8 +224,9 @@ async fn test_dispense_endpoint_overcurrent_protection() {
         admin_password: "password"
         motor_cooldown_ms: 5000
         motor_current_limit_amps: 0.1
-        "#))
-    ).await;
+        "#,
+    )))
+    .await;
     start_power_monitoring_thread(app_state.clone()).await;
 
     let response = post_with_auth(&client, addr, "/dispense").await;

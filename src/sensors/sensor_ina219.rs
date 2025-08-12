@@ -1,12 +1,11 @@
+use crate::sensors::PowerReading;
+use crate::sensors::PowerSensor;
 use ina219::SyncIna219;
 use ina219::address::Address;
 use ina219::calibration::IntCalibration;
 use ina219::calibration::MicroAmpere;
 use linux_embedded_hal::I2cdev;
 use tracing::{debug, error, info};
-use crate::sensors::PowerReading;
-use crate::sensors::PowerSensor;
-
 
 pub struct SensorIna219 {
     ina219: SyncIna219<I2cdev, Option<IntCalibration>>,
@@ -46,8 +45,8 @@ impl SensorIna219 {
         info!("Initializing INA219 sensor");
 
         // Initialize the I2C device
-        let i2c =
-            I2cdev::new("/dev/i2c-1").map_err(|e| format!("Failed to initialize I2C device: {}", e))?;
+        let i2c = I2cdev::new("/dev/i2c-1")
+            .map_err(|e| format!("Failed to initialize I2C device: {}", e))?;
         debug!("I2C device initialized");
 
         let address_byte = 0x40; // Default I2C address for INA219, todo: make configurable

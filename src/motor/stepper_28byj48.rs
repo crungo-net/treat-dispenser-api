@@ -3,10 +3,10 @@ use crate::motor::{AsyncStepperMotor, Direction, StepMode, StepperMotor};
 use rppal::gpio::{Gpio, Level::Low, OutputPin};
 use std::sync::Arc;
 use std::time::Duration;
+use std::vec::Vec;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
-use std::vec::Vec;
 
 pub struct Stepper28BYJ48 {}
 
@@ -66,8 +66,7 @@ impl StepperMotor for Stepper28BYJ48 {
         };
         match Gpio::new() {
             Ok(gpio) => {
-                let pins =
-                    init_stepper_pins(&gpio).map_err(|e| format!("{}", e))?;
+                let pins = init_stepper_pins(&gpio).map_err(|e| format!("{}", e))?;
 
                 let [mut pin1, mut pin2, mut pin3, mut pin4] = pins
                     .try_into()

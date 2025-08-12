@@ -1,11 +1,14 @@
 use rppal::gpio::Gpio;
+use rppal::spi::Bus;
+use rppal::spi::SlaveSelect;
 use serde::Serialize;
 use std::fmt;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, warn, info};
+use tracing::{error, info, warn};
 
 use crate::AppConfig;
 use crate::motor::AsyncStepperMotor;
@@ -14,6 +17,10 @@ use crate::motor::stepper_mock::StepperMock;
 use crate::motor::stepper_nema14::StepperNema14;
 use crate::sensors::PowerReading;
 use crate::sensors::PowerSensor;
+use crate::sensors::WeightReading;
+use crate::sensors::WeightSensor;
+use crate::sensors::WeightSensorCalibration;
+use crate::services::weight_monitor;
 
 pub type AppStateMutex = Arc<Mutex<ApplicationState>>;
 
@@ -28,6 +35,8 @@ pub enum DispenserStatus {
     NoGpio,
     Cooldown,
     Cancelled,
+    Calibrating,
+    CalibrationFailed,
 }
 
 impl fmt::Display for DispenserStatus {
@@ -50,6 +59,12 @@ pub struct ApplicationState {
     pub power_sensor_mutex: Option<Arc<Mutex<Box<dyn PowerSensor>>>>,
     pub power_readings_tx: tokio::sync::watch::Sender<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
+    pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
+    pub weight_readings_tx: tokio::sync::watch::Sender<WeightReading>,
+    pub weight_readings_rx: tokio::sync::watch::Receiver<WeightReading>,
+    pub calibration_in_progress: Arc<AtomicBool>,
+    pub calibration_tx: tokio::sync::watch::Sender<WeightSensorCalibration>,
+    pub calibration_rx: tokio::sync::watch::Receiver<WeightSensorCalibration>,
 }
 
 impl ApplicationState {
@@ -59,8 +74,7 @@ impl ApplicationState {
 
         info!("Starting treat-dispenser-api, version: {}", version);
 
-        let motor_env =
-            std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "StepperNema14".to_string());
+        let motor_env = std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "StepperNema14".to_string());
 
         let motor = match init_motor(motor_env.to_string(), app_config.clone()) {
             Ok(motor) => {
@@ -73,8 +87,8 @@ impl ApplicationState {
             }
         };
 
-        let power_sensor_env = std::env::var("POWER_SENSOR")
-            .unwrap_or_else(|_| "SensorINA219".to_string());
+        let power_sensor_env =
+            std::env::var("POWER_SENSOR").unwrap_or_else(|_| "SensorINA219".to_string());
         let power_sensor_mutex = match init_power_sensor(power_sensor_env, &app_config) {
             Ok(sensor) => Some(Arc::new(Mutex::new(sensor))),
             Err(e) => {
@@ -104,6 +118,31 @@ impl ApplicationState {
             status = DispenserStatus::Operational;
         }
 
+        let weight_sensor_env =
+            std::env::var("WEIGHT_SENSOR").unwrap_or_else(|_| "SensorMock".to_string());
+
+        let weight_sensor_result = init_weight_sensor(weight_sensor_env, &app_config);
+        let weight_sensor = match weight_sensor_result {
+            Ok(sensor) => sensor,
+            Err(e) => {
+                error!("Failed to initialize weight sensor: {}", e);
+                std::process::exit(1)
+            }
+        };
+
+        let weight_sensor_mutex = Some(Arc::new(Mutex::new(weight_sensor)));
+        let (weight_readings_tx, weight_readings_rx) =
+            tokio::sync::watch::channel(WeightReading::default());
+
+        let weight_sensor_calibration = weight_monitor::load_calibration_from_file()
+            .unwrap_or_else(|e| {
+                warn!("Failed to load weight sensor calibration from file, will use default values instead. Error: {}", e);
+                WeightSensorCalibration::default()
+            });
+
+        let (calibration_tx, calibration_rx) =
+            tokio::sync::watch::channel(weight_sensor_calibration);
+
         Self {
             gpio,
             status,
@@ -117,9 +156,31 @@ impl ApplicationState {
             version,
             power_sensor_mutex,
             power_readings_tx,
+            weight_sensor_mutex,
+            weight_readings_tx,
+            weight_readings_rx,
             motor_cancel_token: None,
+            calibration_in_progress: Arc::new(AtomicBool::new(false)),
+            calibration_tx,
+            calibration_rx,
         }
     }
+}
+
+fn init_weight_sensor(
+    sensor_name: String,
+    _app_config: &AppConfig,
+) -> Result<Box<dyn WeightSensor>, String> {
+    match sensor_name.as_str() {
+        "SensorHX711" => {
+            return Ok(Box::new(crate::sensors::sensor_hx711::SensorHx711::new(
+                Bus::Spi0,
+                SlaveSelect::Ss0,
+            )?));
+        }
+        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())),
+        _ => return Err(format!("Unsupported weight sensor type '{}'", sensor_name)),
+    };
 }
 
 fn init_power_sensor(
@@ -128,7 +189,7 @@ fn init_power_sensor(
 ) -> Result<Box<dyn PowerSensor>, String> {
     match sensor_name.as_str() {
         "SensorINA219" => return Ok(Box::new(crate::sensors::sensor_ina219::SensorIna219::new())),
-        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())), 
+        "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())),
         _ => return Err(format!("Unsupported power sensor type '{}'", sensor_name)),
     };
 }
