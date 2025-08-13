@@ -15,7 +15,7 @@ impl WeightSensor for SensorMock {
         _calibration: &WeightSensorCalibration,
     ) -> Result<crate::sensors::WeightReading, String> {
         // Return a dummy weight reading for testing purposes
-        Ok(crate::sensors::WeightReading { grams: 12345 })
+        Ok(crate::sensors::WeightReading { grams: 12345.0 })
     }
 
     fn get_raw(&mut self) -> Result<i32, String> {

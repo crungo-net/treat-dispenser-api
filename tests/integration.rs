@@ -184,7 +184,7 @@ async fn test_weight_monitoring_thread() {
 
     let status_json = response.json::<StatusResponse>().await.unwrap();
 
-    assert_eq!(status_json.remaining_treats_grams, 12345);
+    assert_eq!(status_json.remaining_treats_grams, 12345.0);
 }
 
 #[tokio::test]

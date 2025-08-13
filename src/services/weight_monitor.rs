@@ -7,7 +7,7 @@ use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::time::{MissedTickBehavior, interval};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, warn, info, trace};
 
 /// Spawns an asynchronous task that periodically reads the weight sensor (if present)
 /// and publishes processed weight readings to subscribers. Skips sampling while a
@@ -108,12 +108,12 @@ pub async fn calibrate_weight_sensor(
             match read_result {
                 Ok(reading) => {
                     samples.push(reading);
-                    tokio::time::sleep(Duration::from_millis(15)).await;
                 }
                 Err(e) => {
                     trace!("Failed to read weight during calibration: {}", e);
                 }
             }
+            tokio::time::sleep(Duration::from_millis(15)).await;
         }
     } else {
         state_helpers::set_dispenser_status_async(
@@ -191,12 +191,12 @@ pub async fn tare_weight_sensor(
             match read_result {
                 Ok(reading) => {
                     samples.push(reading);
-                    tokio::time::sleep(Duration::from_millis(15)).await;
                 }
                 Err(e) => {
                     trace!("Failed to read weight during tare: {}", e);
                 }
             }
+            tokio::time::sleep(Duration::from_millis(15)).await;
         }
     } else {
         calibration_in_progress.store(false, Ordering::Relaxed);
@@ -252,13 +252,19 @@ pub struct CalibrationRequest {
 fn calculate_trimmed_mean(samples: &mut [i32]) -> f32 {
     samples.sort_unstable();
 
-    let k = (samples.len() as f32 * 0.2).round() as usize; 
+    let n = samples.len();
+    let k = (n * 20) / 100;
+
+    if n < 2*k+1 {
+        warn!("Not enough samples to trim, returning simple mean");
+        let sum: i64 = samples.iter().map(|v| *v as i64).sum();
+        return sum as f32 / samples.len() as f32;
+    }
 
     // subslice that excludes lowest k and highest k samples,
-    // ensuring we have at least one sample left after trimming
-    let slice = &samples[k..samples.len().saturating_sub(k).max(k + 1)];
-    let sum: i64 = slice.iter().map(|v| *v as i64).sum();
-    let trimmed_mean = (sum as f32 / slice.len() as f32).round();
+    let slice = &samples[k..n-k];
+    let sum: i64 = slice.iter().map(|&v| v as i64).sum();
+    let trimmed_mean = sum as f32 / slice.len() as f32;
 
     trimmed_mean
 }
