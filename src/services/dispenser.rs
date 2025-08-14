@@ -4,6 +4,7 @@ use crate::error::ApiError;
 use crate::motor::{AsyncStepperMotor, Direction, StepMode};
 use crate::utils::datetime;
 use crate::utils::state_helpers::set_dispenser_status_async;
+use crate::config;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
@@ -67,7 +68,7 @@ pub async fn dispense(app_state: AppStateMutex) -> Result<(), ApiError> {
                 info!("Motor run completed successfully, steps: {}", steps);
                 // enforce a cooldown period after operation
                 set_dispenser_status_async(&app_state_clone, DispenserStatus::Cooldown).await;
-                let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms;
+                let cooldown_ms = app_state_clone.lock().await.app_config.motor_cooldown_ms.unwrap_or(config::MOTOR_COOLDOWN_MS_DEFAULT);
                 tokio::time::sleep(Duration::from_millis(cooldown_ms)).await;
 
                 let mut state_guard = app_state_clone.lock().await;

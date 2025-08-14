@@ -53,7 +53,7 @@ async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<Appli
     });
     info!("Using config: {}", config_str);
 
-    let config = treat_dispenser_api::load_app_config_from_str(config_str.as_ref());
+    let config = treat_dispenser_api::config::load_app_config_from_str(config_str.as_ref());
     let (_app_state, app) = build_app(config.clone());
     let listener = TcpListener::bind(config.api.listen_address).await.unwrap();
     let addr = listener.local_addr().unwrap();

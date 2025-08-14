@@ -1,4 +1,4 @@
-use treat_dispenser_api::load_app_config;
+use treat_dispenser_api::config::load_app_config;
 use treat_dispenser_api::{
     build_app, configure_logging, services::power_monitor, services::weight_monitor, start_server,
 };
