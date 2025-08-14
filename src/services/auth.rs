@@ -41,11 +41,20 @@ pub async fn handle_login(
             exp: expiration,
         };
 
-        // todo: use a secure secret key in production
+        let jwt_secret_env_result = std::env::var("DISPENSER_JWT_SECRET");
+        let jwt_secret = match jwt_secret_env_result {
+            Ok(secret) => secret,
+            Err(_) => {
+                return Err(ApiError::Internal(
+                    "DISPENSER_JWT_SECRET environment variable not set.".to_string(),
+                ));
+            }
+        };
+
         let token_result = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret("supersecret".as_ref()), // todo: read from env
+            &EncodingKey::from_secret(jwt_secret.as_ref()), 
         );
         let token = match token_result {
             Ok(t) => t,
