@@ -34,7 +34,6 @@ pub struct MotorConfig {
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct AppConfig {
     pub api: ApiConfig,
-    pub nema14: Option<Nema14Config>,
     pub motor: MotorConfig,
     pub power_monitor: PowerMonitorConfig,
     pub weight_monitor: WeightMonitorConfig,
