@@ -59,3 +59,57 @@ pub fn load_app_config() -> AppConfig {
     );
     app_config
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;   
+
+    #[test]
+    fn test_load_app_config() {
+        let config_str = r#"
+        api:
+            listen_address: "0.0.0.0:3500"
+            admin_user: "admin"
+            admin_password: "password"
+
+        motor:
+            motor_type: "StepperNema14"
+            cooldown_ms: 5000
+            nema14:
+              dir_pin: 26
+              step_pin: 19
+              sleep_pin: 13
+              reset_pin: 6
+              enable_pin: 17
+
+        power_monitor:
+            sensor: "SensorINA219"
+            motor_current_limit_amps: 0.7
+
+        weight_monitor:
+            sensor: "SensorHX711"
+        "# ;  
+
+        let config = load_app_config_from_str(config_str);
+        let nema14_config_opt = config.motor.nema14.clone();
+
+        assert_eq!(config.api.listen_address, "0.0.0.0:3500");
+        assert_eq!(config.api.admin_user, "admin");
+        assert_eq!(config.api.admin_password, "password");
+        assert_eq!(config.motor.motor_type, "StepperNema14");
+        assert_eq!(config.motor.cooldown_ms, Some(5000));
+        assert_eq!(config.power_monitor.sensor, "SensorINA219");
+        assert_eq!(config.power_monitor.motor_current_limit_amps, Some(0.7));
+        assert_eq!(config.weight_monitor.sensor, "SensorHX711");
+
+        assert!(nema14_config_opt.is_some());
+        let nema14_config = nema14_config_opt.unwrap();
+
+        assert_eq!(nema14_config.dir_pin, 26);
+        assert_eq!(nema14_config.step_pin, 19);
+        assert_eq!(nema14_config.sleep_pin, 13);
+        assert_eq!(nema14_config.reset_pin, 6);
+        assert_eq!(nema14_config.enable_pin, 17);
+
+    }
+}
