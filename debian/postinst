@@ -5,9 +5,8 @@ set -e
 if [ ! -f /etc/treat-dispenser-api/environment ]; then
     mkdir -p /etc/treat-dispenser-api
     cat > /etc/treat-dispenser-api/environment << ENVEOF
-DISPENSER_API_TOKEN=change_me_to_a_secure_token
+DISPENSER_JWT_SECRET=change_me_to_a_secure_token
 RUST_LOG=info
-MOTOR_TYPE=Stepper28BYJ48
 ENVEOF
     chmod 600 /etc/treat-dispenser-api/environment
 fi

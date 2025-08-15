@@ -9,6 +9,8 @@ pub const MOTOR_CURRENT_LIMIT_AMPS_DEFAULT: f32 = 0.7;
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct ApiConfig {
     pub listen_address: String,
+    pub admin_user: String,
+    pub admin_password: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
@@ -36,8 +38,6 @@ pub struct AppConfig {
     pub motor: MotorConfig,
     pub power_monitor: PowerMonitorConfig,
     pub weight_monitor: WeightMonitorConfig,
-    pub admin_user: String,
-    pub admin_password: String,
 }
 
 pub fn load_app_config_from_str(config_str: &str) -> AppConfig {

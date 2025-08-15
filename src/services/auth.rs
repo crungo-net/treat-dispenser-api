@@ -29,7 +29,7 @@ pub async fn handle_login(
     payload: LoginRequest,
 ) -> Result<LoginResponse, ApiError> {
     let config = &app_state.lock().await.app_config;
-    if payload.username == config.admin_user && payload.password == config.admin_password {
+    if payload.username == config.api.admin_user && payload.password == config.api.admin_password {
         // Create JWT token that expires in one year
         let expiration = chrono::Utc::now()
             .checked_add_signed(chrono::Duration::days(7))

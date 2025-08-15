@@ -43,6 +43,8 @@ async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<Appli
         r#"
         api:
           listen_address: "127.0.0.1:0"
+          admin_user: "admin"
+          admin_password: "password"
         power_monitor:
           sensor: "SensorMock"
           motor_current_limit_amps: 0.7
@@ -51,8 +53,6 @@ async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<Appli
         motor:
           motor_type: "StepperMock"
           cooldown_ms: 5000
-        admin_user: "admin"
-        admin_password: "password"
         "#,
         )
     });
@@ -224,6 +224,8 @@ async fn test_dispense_endpoint_overcurrent_protection() {
         r#"
         api:
           listen_address: "127.0.0.1:0"
+          admin_user: "admin"
+          admin_password: "password"
         power_monitor:
           sensor: "SensorMock"
           motor_current_limit_amps: 0.1
@@ -232,8 +234,6 @@ async fn test_dispense_endpoint_overcurrent_protection() {
         motor:
           motor_type: "StepperMock"
           cooldown_ms: 5000
-        admin_user: "admin"
-        admin_password: "password"
         "#,
     )))
     .await;

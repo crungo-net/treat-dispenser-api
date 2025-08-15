@@ -1,15 +1,24 @@
 api:
   listen_address: "0.0.0.0:3500"
+  admin_user: "admin"
+  admin_password: "password"
 
-motor_cooldown_ms: 5000
+motor:
+  motor_type: "StepperMock"
+  cooldown_ms: 5000
 
-# Uncomment and configure if using NEMA-14 motor
-#nema14:
-#  dir_pin: 26
-#  step_pin: 19
-#  sleep_pin: 13
-#  reset_pin: 6
-#  enable_pin: 17
+  # Uncomment and configure if using NEMA-14 motor
+  #nema14:
+  #  dir_pin: 26
+  #  step_pin: 19
+  #  sleep_pin: 13
+  #  reset_pin: 6
+  #  enable_pin: 17
 
-admin_user: "admin"
-admin_password: "admin"
+power_monitor:
+  sensor: "SensorINA219"
+  motor_current_limit_amps: 0.7
+
+weight_monitor:
+  sensor: "SensorMock"
+
