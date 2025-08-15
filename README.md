@@ -29,15 +29,16 @@ A simple REST API for controlling a treat dispenser, built with [Axum](https://g
 
 - **One-click treat dispensing:** Trigger treat dispensing remotely via a simple REST API call.
 - **Secure access with JWT authentication:** Only authorized users can dispense treats or access sensitive endpoints.
-- **Real-time status monitoring:** Instantly check dispenser health, motor status, and uptime from any device.
+- **Real-time status monitoring:** Instantly check dispenser health, motor status, uptime, power usage, and remaining treat weight.
 - **Live power and current monitoring:** View live voltage, current, and power usage for hardware safety and diagnostics.
 - **Weight monitoring with HX711 load cell:** Live grams remaining exposed in `/status`, with tare and scale calibration via `/tare` and `/calibrate` (calibration persisted on disk).
-- **Automatic jam and error detection:** The system detects jams, high current, and hardware errors, and can cancel operations to protect the device.
-- **Supports multiple stepper motors:** Easily switch between 28BYJ-48, NEMA-14, or mock motors for testing or different hardware setups.
-- **Configurable cooldown and safety limits:** Prevents overheating and hardware damage with customizable cooldowns and current limits.
-- **Easy setup and deployment:** Pre-built Debian packages, Docker support, and simple configuration for Raspberry Pi and other Linux devices.
-- **Structured logging and diagnostics:** All actions and errors are logged for easy troubleshooting and auditability.
-- **Web and mobile friendly:** Designed for integration with web frontends, mobile apps, or home automation systems.
+- **Automatic jam and error detection:** Detects jams, over‑current, and calibration failures; can cancel operations to protect hardware.
+- **Pluggable hardware via config.yaml:** Select motor, power sensor, and weight sensor implementations without recompiling.
+- **Supports multiple stepper motors:** Easily switch between 28BYJ-48, NEMA-14, or mock motors.
+- **Configurable cooldown & current limits:** Prevent overheating or over‑current conditions.
+- **Easy setup & deployment:** Debian package, Docker, and simple YAML configuration.
+- **Structured logging and diagnostics.**
+- **Web and mobile friendly.**
 
 <p align="center">
   <img src="docs/treato_frontend.png" alt="Sample Treat Dispenser Frontend" width="600" />
@@ -122,57 +123,65 @@ To upgrade, simply install the new `.deb` package with `dpkg -i` as above. Your 
 
 ## Configuration
 
-The application uses a multi-layered approach to configuration:
+All runtime hardware and safety behavior is configured in a single YAML file (default path: `/etc/treat-dispenser-api/config.yaml`). Environment variables are now only used for logging verbosity and the JWT secret.
 
-1. **Environment Variables**:  
-   Basic configuration is loaded from environment variables or a `.env` file.  
+### Configuration File Structure
 
-2. **Configuration File**:  
-   The main configuration file is expected at `/etc/treat-dispenser-api/config.yaml` (when using the `.deb` package).  
-   This file contains structured settings for the API, motor, and admin credentials.
+`config/config.yaml` (example shipped with the repo):
+```yaml
+api:
+  listen_address: "0.0.0.0:3500"   # Host:port the API binds to
+  admin_user: "admin"              # Login username (change in production)
+  admin_password: "password"       # Login password (change in production)
 
-   **Example `/etc/treat-dispenser-api/config.yaml`:**
-   ```yaml
-   api:
-     listen_address: 0.0.0.0:3500
-   nema14:
-     dir_pin: 23
-     step_pin: 19
-     sleep_pin: 13
-     reset_pin: 6
-     enable_pin: 17
-   motor_cooldown_ms: 5000
-   admin_user: admin
-   admin_password: admin123
-   ```
+motor:
+  motor_type: "StepperMock"        # One of: StepperMock | Stepper28BYJ48 | StepperNema14
+  cooldown_ms: 5000                 # Minimum ms between dispense operations
+  #nema14:                          # Uncomment to enable NEMA14 (A4988) pins
+  #  dir_pin: 26
+  #  step_pin: 19
+  #  sleep_pin: 13
+  #  reset_pin: 6
+  #  enable_pin: 17
 
-   - `admin_user`: Default admin username (change in production!)
-   - `admin_password`: Default admin password (change in production!)
+power_monitor:
+  sensor: "SensorINA219"           # SensorINA219 | SensorMock
+  motor_current_limit_amps: 0.7     # If rolling average exceeds, dispensing is cancelled
 
-3. **Application Config**:  
-   The `AppConfig` struct centralizes configuration settings loaded from the config file and environment variables.
+weight_monitor:
+  sensor: "SensorMock"             # SensorHX711 | SensorMock
+```
 
-**Note:**  
-- If you install via the `.deb` package, the config file must be placed at `/etc/treat-dispenser-api/config.yaml`.
-- The default admin credentials are for development only. Always change these for production deployments.
+### Key Sections
+
+- `api` – Network binding and admin credentials (used by `/login`).
+- `motor` – Active motor implementation and (optionally) NEMA14 GPIO pin mapping plus dispense cooldown.
+- `power_monitor` – Power sensor implementation and safety current threshold (amps). Over‑current triggers cancellation & state update.
+- `weight_monitor` – Weight sensor implementation (mock or HX711). Calibration state is persisted separately to `/etc/treat-dispenser-api/weight_sensor_calibration.json`.
+
+### Changing Hardware
+
+Edit the corresponding `sensor` or `motor_type` field then restart the service:
+```sh
+sudo systemctl restart treat-dispenser-api
+```
+If switching to `StepperNema14`, ensure the `nema14` subsection is present and populated.
+
 
 ## Environment Variables
 
-| Variable               | Description                                                                 | Default         |
-|-----------------------|-----------------------------------------------------------------------------|-----------------|
-| `DISPENSER_JWT_SECRET`| Secret key for signing JWT tokens                                           | `supersecret`   |
-| `RUST_LOG`            | Log level (`trace`, `debug`, `info`, `warn`, `error`)                        | `info`          |
-| `MOTOR_TYPE`          | Type of motor to use (`Stepper28BYJ48`, `StepperNema14`, `StepperMock`)     | `Stepper28BYJ48`|
-| `POWER_SENSOR`        | Power sensor implementation to use (`SensorINA219`, `SensorMock`)           | `SensorINA219`  |
-| `WEIGHT_SENSOR`       | Weight sensor implementation to use (`SensorHX711`, `SensorMock`)           | `SensorMock`    |
+Only a minimal set is currently recognized:
 
-Example `.env` file:
+| Variable        | Description                                   | Default |
+|-----------------|-----------------------------------------------|---------|
+| `RUST_LOG`      | Log level (`trace`..`error`)                   | `info`  |
+| `DISPENSER_JWT_SECRET` | Secret used to encode/decode JWT        | (required)   |
+
+(Older `MOTOR_TYPE`, `POWER_SENSOR`, `WEIGHT_SENSOR` env vars have been superseded by the YAML configuration and are ignored.)
+
+Example (optional) `.env` just for logging:
 ```
-DISPENSER_JWT_SECRET=your_jwt_secret
-RUST_LOG=info
-MOTOR_TYPE=StepperNema14
-POWER_SENSOR=SensorINA219
-WEIGHT_SENSOR=SensorHX711
+RUST_LOG=debug
 ```
 
 ## Justfile Commands
@@ -344,20 +353,14 @@ _Response:_ JSON object containing a human-readable message and the updated cali
 
 ## Hardware Integration
 
-The application is designed primarily for the **NEMA14 stepper motor** (with A4988 or compatible driver), offering robust and reliable dispensing performance. Default pin configuration for NEMA14 on a Raspberry Pi:
-
-- Pin 26: Direction pin
-- Pin 19: Step pin  
-- Pin 13: Sleep pin
-- Pin 6: Reset pin
-- Pin 17: Enable pin
+The application is designed primarily for the **NEMA14 stepper motor** (with A4988 or compatible driver), offering robust and reliable dispensing performance. 
 
 The NEMA14 motor:
 - Has 200 steps per full rotation (1.8° per step)
 - Currently supports full-step mode only
 - Requires proper power supply for the A4988 driver (DC 12V 2A)
 
-To use the NEMA14 motor, set `MOTOR_TYPE=StepperNema14` in your environment variables. The motor control logic enforces a configurable cooldown period after each dispensing operation to protect hardware (default: 5 seconds, configurable via `MOTOR_COOLDOWN_MS` or in the YAML configuration).
+To use the NEMA14 motor, see [Configuration](#configuration)
 
 **Extensible Motor Support:**
 Thanks to the trait-based architecture in [`src/motor`](src/motor), additional stepper motors and drivers can be supported with minimal code changes. You can add new motor implementations by following the existing trait pattern.
@@ -377,9 +380,6 @@ Supported step modes for 28BYJ-48:
 
 Other step modes (quarter, eighth, sixteenth) are defined but not implemented for this motor.
 
-### Motor Type Configuration
-
-The motor type can be configured using the `MOTOR_TYPE` environment variable (see [Environment Variables](#environment-variables) section). This allows switching between hardware implementations and the mock implementation for testing.
 
 ## Logging
 
@@ -466,15 +466,6 @@ The API supports real-time power, voltage, and current monitoring using the INA2
   - Initialization and read errors are logged.
   - Sensor failures do not crash the API; fallback values are used.
 
-**Example INA219 YAML config:**
-```yaml
-power_monitor:
-  i2c_bus: /dev/i2c-1
-  address: 0x40
-  shunt_ohms: 0.1
-  calibration_amps: 1.0
-```
-*(Note: Actual config is currently hardcoded and yaml support will be added in future releases; see `sensors/sensor_ina219.rs` and `services/power_monitor.rs` for details.)*
 
 ## Weight Sensor (HX711 Support)
 

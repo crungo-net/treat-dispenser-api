@@ -6,21 +6,22 @@ pub mod routes;
 pub mod sensors;
 pub mod services;
 pub mod utils;
+pub mod config;
 
 use axum::extract::ConnectInfo;
 use axum::http::{Method, Request, StatusCode};
 use axum::{Router, routing::get, routing::post};
-use serde_yaml;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::{DefaultOnFailure, TraceLayer};
-use tracing::{Level, debug, error, info, trace, warn};
+use tracing::{Level, error, info, trace, warn};
 use tracing_subscriber::EnvFilter;
 
 use crate::application_state::ApplicationState;
+use crate::config::AppConfig;
 
 pub fn configure_logging() {
     tracing_subscriber::fmt()
@@ -165,40 +166,4 @@ fn log_http_request<B>(request: &Request<B>, _span: &tracing::Span) {
         request.method(),
         request.uri()
     );
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-pub struct ApiConfig {
-    pub listen_address: String,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-pub struct AppConfig {
-    pub api: ApiConfig,
-    pub nema14: Option<crate::motor::stepper_nema14::Nema14Config>,
-    pub motor_cooldown_ms: u64,
-    pub admin_user: String,
-    pub admin_password: String,
-    pub motor_current_limit_amps: Option<f32>,
-}
-
-pub fn load_app_config_from_str(config_str: &str) -> AppConfig {
-    serde_yaml::from_str(config_str).expect("Failed to parse app config")
-}
-
-pub fn load_app_config() -> AppConfig {
-    let app_config_path = utils::filesystem::get_config_path();
-    let config_str = std::fs::read_to_string(&app_config_path).expect(&format!(
-        "Failed to read app config file at {}",
-        app_config_path
-    ));
-
-    let app_config: AppConfig = load_app_config_from_str(&config_str);
-
-    // Log the config struct as json
-    debug!(
-        "Parsed app config: {}",
-        serde_json::to_string(&app_config).unwrap_or_default()
-    );
-    app_config
 }

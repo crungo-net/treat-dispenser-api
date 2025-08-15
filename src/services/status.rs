@@ -1,13 +1,12 @@
 use crate::application_state::ApplicationState;
-use crate::sensors::PowerReading;
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{SystemTime};
 use tokio::sync::Mutex;
 use tracing::{error, warn};
 
-pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusResponse {
+pub async fn get_status(state: &Arc<Mutex<ApplicationState>>) -> StatusResponse {
     let now = SystemTime::now();
 
     // Lock once and extract only what we need
@@ -20,7 +19,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
         dispenser_status,
         version,
         motor_name,
-        mut power_readings_rx,
+        power_readings_rx,
         motor_power_sensor_mutex,
         weight_readings_rx,
     ) = {
@@ -35,7 +34,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
             state_guard.status.clone().to_string(),
             state_guard.version.clone(),
             state_guard.motor.get_name().clone(),
-            state_guard.power_readings_tx.subscribe(),
+            state_guard.power_readings_rx.clone(),
             state_guard.power_sensor_mutex.clone(),
             state_guard.weight_readings_rx.clone(),
         )
@@ -46,23 +45,7 @@ pub async fn check_hardware(state: &Arc<Mutex<ApplicationState>>) -> StatusRespo
         .unwrap_or_default()
         .as_secs();
 
-    // wait for up to 500ms for a power reading from broadcast channel
-    let power_reading =
-        //match tokio::time::timeout(Duration::from_millis(1500), power_readings_rx.recv()).await {
-        match tokio::time::timeout(Duration::from_millis(500), power_readings_rx.changed()).await {
-            Ok(Ok(())) => {
-                power_readings_rx.borrow().clone()
-            }
-            Ok(Err(_)) => {
-                warn!("Power reading channel closed, using dummy values");
-                PowerReading::dummy()
-            }
-            Err(_) => {
-                warn!("Timeout waiting for power reading, using dummy values");
-                PowerReading::dummy()
-            }
-
-        };
+    let power_reading = power_readings_rx.borrow().clone();
 
     let power_sensor_name = match motor_power_sensor_mutex {
         Some(sensor) => sensor.lock().await.get_name(),

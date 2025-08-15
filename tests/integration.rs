@@ -40,20 +40,25 @@ async fn wait_for_server(millis: u64) {
 async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<ApplicationState>>) {
     let config_str = config.unwrap_or_else(|| {
         Box::new(
-            r#"
+        r#"
         api:
           listen_address: "127.0.0.1:0"
-          motor_cooldown_ms: 5000
-        admin_user: "admin"
-        admin_password: "password"
-        motor_cooldown_ms: 5000
-        motor_current_limit_amps: 0.7
+          admin_user: "admin"
+          admin_password: "password"
+        power_monitor:
+          sensor: "SensorMock"
+          motor_current_limit_amps: 0.7
+        weight_monitor:
+          sensor: "SensorMock"
+        motor:
+          motor_type: "StepperMock"
+          cooldown_ms: 5000
         "#,
         )
     });
     info!("Using config: {}", config_str);
 
-    let config = treat_dispenser_api::load_app_config_from_str(config_str.as_ref());
+    let config = treat_dispenser_api::config::load_app_config_from_str(config_str.as_ref());
     let (_app_state, app) = build_app(config.clone());
     let listener = TcpListener::bind(config.api.listen_address).await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -149,10 +154,10 @@ async fn test_status_endpoint() {
     assert_eq!(status_json.motor, "StepperMock");
 
     // since no real power sensor is connected, and the power monitoring thread is not started in this test
-    // the power readings should be the dummy values
-    assert_eq!(status_json.motor_voltage_volts, Some(-1.0));
-    assert_eq!(status_json.motor_current_amps, Some(-1.0));
-    assert_eq!(status_json.motor_power_watts, Some(-1.0));
+    // the power readings should be the default values
+    assert_eq!(status_json.motor_voltage_volts, Some(0.0));
+    assert_eq!(status_json.motor_current_amps, Some(0.0));
+    assert_eq!(status_json.motor_power_watts, Some(0.0));
     assert_eq!(status_json.motor_power_sensor, "SensorMock");
 }
 
@@ -219,11 +224,16 @@ async fn test_dispense_endpoint_overcurrent_protection() {
         r#"
         api:
           listen_address: "127.0.0.1:0"
-          motor_cooldown_ms: 5000
-        admin_user: "admin"
-        admin_password: "password"
-        motor_cooldown_ms: 5000
-        motor_current_limit_amps: 0.1
+          admin_user: "admin"
+          admin_password: "password"
+        power_monitor:
+          sensor: "SensorMock"
+          motor_current_limit_amps: 0.1
+        weight_monitor:
+          sensor: "SensorMock"
+        motor:
+          motor_type: "StepperMock"
+          cooldown_ms: 5000
         "#,
     )))
     .await;

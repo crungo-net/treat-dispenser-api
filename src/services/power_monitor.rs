@@ -5,6 +5,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::application_state;
 use crate::sensors::PowerReading;
+use crate::config;
 
 struct PowerMonitor {
     readings_vec: Vec<PowerReading>,
@@ -59,9 +60,8 @@ pub async fn start_power_monitoring_thread(
             let mut power_monitor = PowerMonitor::new();
             let mut i = 0;
 
-            // if average current is above 0.7 (default) amps, log it and cancel ongoing motor operations
             let config = app_state_clone.lock().await.app_config.clone();
-            let current_limit = config.motor_current_limit_amps.unwrap_or(0.7);
+            let current_limit = config.power_monitor.motor_current_limit_amps.unwrap_or(config::MOTOR_CURRENT_LIMIT_AMPS_DEFAULT);
 
             loop {
                 match &current_sensor {

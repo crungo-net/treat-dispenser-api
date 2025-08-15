@@ -10,7 +10,7 @@ stages:
 
 test:
   stage: test
-  image: harbor.crungo.net/docker-proxy/library/rust:1.88
+  image: harbor.crungo.net/docker-proxy/library/rust:1.89
   rules:
     - if: '$CI_COMMIT_BRANCH'  # Only run if this is a branch pipeline
       when: always
@@ -86,7 +86,7 @@ build-amd64-binary-and-image:
 build-arm64-binary:
   stage: build
   # for official Docker Hub images, we need to use the 'library' namespace
-  image: harbor.crungo.net/scout/rust-arm64-compiler:1.88
+  image: harbor.crungo.net/scout/rust-arm64-compiler:1.89
   retry:
     max: 2
     when:
@@ -120,7 +120,7 @@ build-arm64-binary:
 
 build-deb-package:
   stage: build
-  image: harbor.crungo.net/scout/rust-arm64-compiler:1.88
+  image: harbor.crungo.net/scout/rust-arm64-compiler:1.89
   retry:
     max: 2
     when:
@@ -136,7 +136,6 @@ build-deb-package:
     - if: '$CI_COMMIT_BRANCH'
       when: always
   script:
-    - cargo install cargo-deb
     
     # Create necessary directories and copy precompiled binary to where cargo-deb expects it
     - mkdir -p target/aarch64-unknown-linux-musl/release
@@ -146,7 +145,7 @@ build-deb-package:
     - cargo deb --target aarch64-unknown-linux-musl --no-build --no-strip
     
     # Move the resulting .deb file to the dist directory
-    - cp target/aarch64-unknown-linux-musl/debian/*.deb dist/
+    - cp target/debian/*.deb dist/
   artifacts:
     paths:
       - dist/*.deb

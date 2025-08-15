@@ -1,6 +1,6 @@
 [package]
 name = "treat-dispenser-api"
-version = "3.1.1"
+version = "4.0.0"
 edition = "2024"
 
 
@@ -14,7 +14,7 @@ section = "utils"
 priority = "optional"
 assets = [
     ["target/release/treat-dispenser-api", "usr/bin/", "755"],
-    ["config/config.yaml", "etc/treat-dispenser-api/", "644"],
+    ["config/config.yaml", "etc/treat-dispenser-api/", "770"],
     ["config/treat-dispenser-api.service", "lib/systemd/system/", "644"],
     ["README.md", "usr/share/doc/treat-dispenser-api/", "644"],
 ]
