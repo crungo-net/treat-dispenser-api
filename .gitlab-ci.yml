@@ -146,7 +146,7 @@ build-deb-package:
     - cargo deb --target aarch64-unknown-linux-musl --no-build --no-strip
     
     # Move the resulting .deb file to the dist directory
-    - cp target/aarch64-unknown-linux-musl/debian/*.deb dist/
+    - cp target/debian/*.deb dist/
   artifacts:
     paths:
       - dist/*.deb

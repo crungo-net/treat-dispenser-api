@@ -12,7 +12,7 @@ build-arm64-binary:
 build-deb-package:
 	just build-arm64-binary
 	cargo deb --target aarch64-unknown-linux-musl --no-build --no-strip
-	cp -r target/aarch64-unknown-linux-musl/debian {{binary_export_dest}}/treat-dispenser-api-deb
+	cp -r target/debian {{binary_export_dest}}/treat-dispenser-api-deb
 	
 test:
 	cargo test -- --show-output
