@@ -10,7 +10,7 @@ stages:
 
 test:
   stage: test
-  image: harbor.crungo.net/docker-proxy/library/rust:1.88
+  image: harbor.crungo.net/docker-proxy/library/rust:1.89
   rules:
     - if: '$CI_COMMIT_BRANCH'  # Only run if this is a branch pipeline
       when: always
