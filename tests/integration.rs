@@ -40,14 +40,19 @@ async fn wait_for_server(millis: u64) {
 async fn start_server(config: Option<Box<&str>>) -> (SocketAddr, Arc<Mutex<ApplicationState>>) {
     let config_str = config.unwrap_or_else(|| {
         Box::new(
-            r#"
+        r#"
         api:
           listen_address: "127.0.0.1:0"
-          motor_cooldown_ms: 5000
+        power_monitor:
+          sensor: "SensorMock"
+          motor_current_limit_amps: 0.7
+        weight_monitor:
+          sensor: "SensorMock"
+        motor:
+          motor_type: "StepperMock"
+          cooldown_ms: 5000
         admin_user: "admin"
         admin_password: "password"
-        motor_cooldown_ms: 5000
-        motor_current_limit_amps: 0.7
         "#,
         )
     });
@@ -219,11 +224,16 @@ async fn test_dispense_endpoint_overcurrent_protection() {
         r#"
         api:
           listen_address: "127.0.0.1:0"
-          motor_cooldown_ms: 5000
+        power_monitor:
+          sensor: "SensorMock"
+          motor_current_limit_amps: 0.1
+        weight_monitor:
+          sensor: "SensorMock"
+        motor:
+          motor_type: "StepperMock"
+          cooldown_ms: 5000
         admin_user: "admin"
         admin_password: "password"
-        motor_cooldown_ms: 5000
-        motor_current_limit_amps: 0.1
         "#,
     )))
     .await;

@@ -61,7 +61,7 @@ pub async fn start_power_monitoring_thread(
             let mut i = 0;
 
             let config = app_state_clone.lock().await.app_config.clone();
-            let current_limit = config.motor_current_limit_amps.unwrap_or(config::MOTOR_CURRENT_LIMIT_AMPS_DEFAULT);
+            let current_limit = config.power_monitor.motor_current_limit_amps.unwrap_or(config::MOTOR_CURRENT_LIMIT_AMPS_DEFAULT);
 
             loop {
                 match &current_sensor {

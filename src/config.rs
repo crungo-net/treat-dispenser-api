@@ -12,13 +12,32 @@ pub struct ApiConfig {
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct PowerMonitorConfig {
+    pub sensor: String,
+    pub motor_current_limit_amps: Option<f32>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct WeightMonitorConfig {
+    pub sensor: String,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub struct MotorConfig {
+    pub motor_type: String,
+    pub nema14: Option<Nema14Config>,
+    pub cooldown_ms: Option<u64>,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct AppConfig {
     pub api: ApiConfig,
     pub nema14: Option<Nema14Config>,
-    pub motor_cooldown_ms: Option<u64>,
+    pub motor: MotorConfig,
+    pub power_monitor: PowerMonitorConfig,
+    pub weight_monitor: WeightMonitorConfig,
     pub admin_user: String,
     pub admin_password: String,
-    pub motor_current_limit_amps: Option<f32>,
 }
 
 pub fn load_app_config_from_str(config_str: &str) -> AppConfig {

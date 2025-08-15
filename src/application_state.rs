@@ -75,9 +75,7 @@ impl ApplicationState {
 
         info!("Starting treat-dispenser-api, version: {}", version);
 
-        let motor_env = std::env::var("MOTOR_TYPE").unwrap_or_else(|_| "StepperNema14".to_string());
-
-        let motor = match init_motor(motor_env.to_string(), app_config.clone()) {
+        let motor = match init_motor(&app_config) {
             Ok(motor) => {
                 info!("Motor initialized: {}", motor.get_name());
                 Arc::new(motor)
@@ -88,9 +86,7 @@ impl ApplicationState {
             }
         };
 
-        let power_sensor_env =
-            std::env::var("POWER_SENSOR").unwrap_or_else(|_| "SensorINA219".to_string());
-        let power_sensor_mutex = match init_power_sensor(power_sensor_env, &app_config) {
+        let power_sensor_mutex = match init_power_sensor(&app_config) {
             Ok(sensor) => Some(Arc::new(Mutex::new(sensor))),
             Err(e) => {
                 error!("Failed to initialize power sensor: {}", e);
@@ -119,10 +115,7 @@ impl ApplicationState {
             status = DispenserStatus::Operational;
         }
 
-        let weight_sensor_env =
-            std::env::var("WEIGHT_SENSOR").unwrap_or_else(|_| "SensorMock".to_string());
-
-        let weight_sensor_result = init_weight_sensor(weight_sensor_env, &app_config);
+        let weight_sensor_result = init_weight_sensor(&app_config);
         let weight_sensor = match weight_sensor_result {
             Ok(sensor) => sensor,
             Err(e) => {
@@ -170,10 +163,9 @@ impl ApplicationState {
 }
 
 fn init_weight_sensor(
-    sensor_name: String,
-    _app_config: &AppConfig,
+    app_config: &AppConfig,
 ) -> Result<Box<dyn WeightSensor>, String> {
-    match sensor_name.as_str() {
+    match app_config.weight_monitor.sensor.as_str() {
         "SensorHX711" => {
             return Ok(Box::new(crate::sensors::sensor_hx711::SensorHx711::new(
                 Bus::Spi0,
@@ -181,26 +173,24 @@ fn init_weight_sensor(
             )?));
         }
         "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())),
-        _ => return Err(format!("Unsupported weight sensor type '{}'", sensor_name)),
+        _ => return Err(format!("Unsupported weight sensor type '{}'", app_config.weight_monitor.sensor)),
     };
 }
 
 fn init_power_sensor(
-    sensor_name: String,
-    _app_config: &AppConfig,
+    app_config: &AppConfig,
 ) -> Result<Box<dyn PowerSensor>, String> {
-    match sensor_name.as_str() {
+    match app_config.power_monitor.sensor.as_str() {
         "SensorINA219" => return Ok(Box::new(crate::sensors::sensor_ina219::SensorIna219::new())),
         "SensorMock" => return Ok(Box::new(crate::sensors::sensor_mock::SensorMock::new())),
-        _ => return Err(format!("Unsupported power sensor type '{}'", sensor_name)),
+        _ => return Err(format!("Unsupported power sensor type '{}'", app_config.power_monitor.sensor)),
     };
 }
 
 fn init_motor(
-    motor_type: String,
-    config: AppConfig,
+    config: &AppConfig,
 ) -> Result<Box<dyn AsyncStepperMotor + Send + Sync>, String> {
-    match motor_type.as_str() {
+    match config.motor.motor_type.as_str() {
         "Stepper28BYJ48" => Ok(Box::new(Stepper28BYJ48::new())),
         "StepperNema14" => {
             let nema14_config = match config.nema14.clone() {
@@ -210,6 +200,6 @@ fn init_motor(
             Ok(Box::new(StepperNema14::new(nema14_config)))
         }
         "StepperMock" => Ok(Box::new(StepperMock::new())),
-        _ => Err(format!("Unsupported motor type '{}'", motor_type)),
+        _ => Err(format!("Unsupported motor type '{}'", config.motor.motor_type)),
     }
 }
