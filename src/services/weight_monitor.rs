@@ -2,6 +2,7 @@ use crate::application_state::{self, ApplicationState};
 use crate::sensors::{WeightSensorCalibration};
 use crate::utils::state_helpers;
 use crate::utils::filesystem;
+use crate::application_state::DispenserStatus;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
@@ -79,6 +80,12 @@ pub async fn calibrate_weight_sensor(
     known_mass_grams: f32,
 ) -> Result<CalibrationResponse, String> {
     let app_state = Arc::clone(&app_state);
+
+    let dispenser_status = app_state.lock().await.status.clone();
+    if dispenser_status != DispenserStatus::Operational && dispenser_status != DispenserStatus::Cancelled {
+        return Err("Dispenser is not operational, cannot calibrate".to_string());
+    }
+
 
     let calibration_in_progress = app_state.lock().await.calibration_in_progress.clone();
     calibration_in_progress.store(true, Ordering::Relaxed);
@@ -162,6 +169,11 @@ pub async fn tare_weight_sensor(
     app_state: Arc<Mutex<ApplicationState>>,
 ) -> Result<CalibrationResponse, String> {
     let app_state = Arc::clone(&app_state);
+
+    let dispenser_status = app_state.lock().await.status.clone();
+    if dispenser_status != DispenserStatus::Operational && dispenser_status != DispenserStatus::Cancelled {
+        return Err("Dispenser is not operational, cannot tare".to_string());
+    }
 
     let calibration_in_progress = app_state.lock().await.calibration_in_progress.clone();
     calibration_in_progress.store(true, Ordering::Relaxed);
