@@ -58,6 +58,7 @@ pub struct ApplicationState {
     pub version: String,
     pub power_sensor_mutex: Option<Arc<Mutex<Box<dyn PowerSensor>>>>,
     pub power_readings_tx: tokio::sync::watch::Sender<PowerReading>,
+    pub power_readings_rx: tokio::sync::watch::Receiver<PowerReading>,
     pub motor_cancel_token: Option<CancellationToken>,
     pub weight_sensor_mutex: Option<Arc<Mutex<Box<dyn WeightSensor>>>>,
     pub weight_readings_tx: tokio::sync::watch::Sender<WeightReading>,
@@ -97,7 +98,7 @@ impl ApplicationState {
             }
         };
 
-        let (power_readings_tx, _power_readings_rx) =
+        let (power_readings_tx, power_readings_rx) =
             tokio::sync::watch::channel(PowerReading::default());
 
         let gpio = match Gpio::new() {
@@ -156,6 +157,7 @@ impl ApplicationState {
             version,
             power_sensor_mutex,
             power_readings_tx,
+            power_readings_rx,
             weight_sensor_mutex,
             weight_readings_tx,
             weight_readings_rx,

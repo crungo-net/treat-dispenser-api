@@ -149,10 +149,10 @@ async fn test_status_endpoint() {
     assert_eq!(status_json.motor, "StepperMock");
 
     // since no real power sensor is connected, and the power monitoring thread is not started in this test
-    // the power readings should be the dummy values
-    assert_eq!(status_json.motor_voltage_volts, Some(-1.0));
-    assert_eq!(status_json.motor_current_amps, Some(-1.0));
-    assert_eq!(status_json.motor_power_watts, Some(-1.0));
+    // the power readings should be the default values
+    assert_eq!(status_json.motor_voltage_volts, Some(0.0));
+    assert_eq!(status_json.motor_current_amps, Some(0.0));
+    assert_eq!(status_json.motor_power_watts, Some(0.0));
     assert_eq!(status_json.motor_power_sensor, "SensorMock");
 }
 
