@@ -40,7 +40,7 @@ pub fn configure_logging() {
 /// Builds the Axum application with routes and shared state.
 /// A TraceLayer is added for logging client request details.
 pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::Router) {
-    let app_state = Arc::new(Mutex::new(application_state::ApplicationState::new(
+    let app_state = Arc::new(Mutex::new(ApplicationState::new(
         app_config,
     )));
 
@@ -102,6 +102,7 @@ pub fn build_app(app_config: AppConfig) -> (Arc<Mutex<ApplicationState>>, axum::
     );
 }
 
+/// Starts the Axum server with the provided router and configuration.
 pub async fn start_server(app: Router, config: AppConfig) {
     let bind_address: SocketAddr = format!("{}", config.api.listen_address).parse().unwrap();
     let listener = tokio::net::TcpListener::bind(bind_address)
