@@ -40,8 +40,8 @@ pub async fn start_weight_monitoring_thread(app_state: &Arc<Mutex<ApplicationSta
                     loop {
                         tick.tick().await;
 
-                        if samples.len() >= 20 {
-                            // Every 20 samples (300 ms approx), calculate and publish the trimmed mean (reduces noise and outliers)
+                        if samples.len() >= 30 {
+                            // Every 30 samples (450 ms approx), calculate and publish the trimmed mean (reduces noise and outliers)
                             let mean_weight = calculate_trimmed_mean(
                                 &mut samples.iter().map(|r| r.grams).collect::<Vec<f32>>()
                             );
@@ -276,7 +276,7 @@ pub struct CalibrationRequest {
 }
 
 /// Computes a 20% trimmed mean (removes the lowest and highest 20% of values)
-/// from the supplied sample slice, returning a rounded f32. Helps reject outliers
+/// from the supplied sample slice, returning a f32. Helps reject outliers
 /// and reduce noise in raw load cell readings.
 fn calculate_trimmed_mean(samples: &mut [f32]) -> f32 {
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -291,8 +291,8 @@ fn calculate_trimmed_mean(samples: &mut [f32]) -> f32 {
 
     // subslice that excludes lowest k and highest k samples,
     let slice = &samples[k..n-k];
-    let sum: i64 = slice.iter().map(|&v| v as i64).sum();
-    let trimmed_mean = sum as f32 / slice.len() as f32;
+    let sum: f32 = slice.iter().map(|&v| v).sum();
+    let trimmed_mean = sum as f32 / (slice.len() as f32);
 
     trimmed_mean
 }
