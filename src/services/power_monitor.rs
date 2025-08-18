@@ -48,7 +48,7 @@ impl PowerMonitor {
 }
 
 pub async fn start_power_monitoring_thread(
-    app_state: Arc<Mutex<application_state::ApplicationState>>,
+    app_state: &Arc<Mutex<application_state::ApplicationState>>,
 ) {
     tokio::spawn({
         let current_sensor = app_state.lock().await.power_sensor_mutex.clone();

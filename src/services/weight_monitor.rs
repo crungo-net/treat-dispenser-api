@@ -16,9 +16,9 @@ use tracing::{debug, error, warn, info, trace};
 /// calibration (tare or scale) operation is in progress.
 ///
 /// * `app_state` - Shared application state containing sensor handles and channels.
-pub async fn start_weight_monitoring_thread(app_state: Arc<Mutex<ApplicationState>>) {
+pub async fn start_weight_monitoring_thread(app_state: &Arc<Mutex<ApplicationState>>) {
     tokio::spawn({
-        let app_state_clone = Arc::clone(&app_state);
+        let app_state_clone = Arc::clone(app_state);
         let sensor_mutex_opt = app_state_clone.lock().await.weight_sensor_mutex.clone();
         let weight_readings_tx = app_state_clone.lock().await.weight_readings_tx.clone();
         let calibration_in_progress =

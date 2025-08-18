@@ -164,7 +164,7 @@ async fn test_status_endpoint() {
 #[tokio::test]
 async fn test_power_monitoring_thread() {
     let (addr, client, app_state) = setup(None).await;
-    start_power_monitoring_thread(app_state).await;
+    start_power_monitoring_thread(&app_state).await;
     wait_for_server(5000).await; // Wait for server to be ready
 
     let response = get_with_auth(&client, addr, "/status").await;
@@ -181,7 +181,7 @@ async fn test_power_monitoring_thread() {
 #[tokio::test]
 async fn test_weight_monitoring_thread() {
     let (addr, client, app_state) = setup(None).await;
-    start_weight_monitoring_thread(app_state).await;
+    start_weight_monitoring_thread(&app_state).await;
     wait_for_server(5000).await; // Wait for server to be ready
 
     let response = get_with_auth(&client, addr, "/status").await;
@@ -237,7 +237,7 @@ async fn test_dispense_endpoint_overcurrent_protection() {
         "#,
     )))
     .await;
-    start_power_monitoring_thread(app_state.clone()).await;
+    start_power_monitoring_thread(&app_state).await;
 
     let response = post_with_auth(&client, addr, "/dispense").await;
 
