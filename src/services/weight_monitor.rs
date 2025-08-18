@@ -3,6 +3,7 @@ use crate::sensors::{WeightSensorCalibration};
 use crate::utils::state_helpers;
 use crate::utils::filesystem;
 use crate::application_state::DispenserStatus;
+use crate::sensors::WeightReading;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, atomic::Ordering};
 use std::time::Duration;
@@ -34,24 +35,40 @@ pub async fn start_weight_monitoring_thread(app_state: Arc<Mutex<ApplicationStat
                     let mut tick = interval(Duration::from_millis(15));
                     tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
+                    let mut samples: Vec<WeightReading> = Vec::new();
+
                     loop {
                         tick.tick().await;
+
+                        if samples.len() >= 20 {
+                            // Every 20 samples (300 ms approx), calculate and publish the trimmed mean (reduces noise and outliers)
+                            let mean_weight = calculate_trimmed_mean(
+                                &mut samples.iter().map(|r| r.grams).collect::<Vec<f32>>()
+                            );
+
+                            let mean_reading = WeightReading {
+                                grams: mean_weight,
+                            };
+
+                            let _ = weight_readings_tx.send(mean_reading);
+                            samples.clear();
+                        }
 
                         if calibration_in_progress.load(Ordering::Relaxed) {
                             debug!("Calibration in progress, skipping weight reading");
                             continue;
                         }
 
+                        let calibration = calibration_rx.borrow().clone();
                         let reading_result = {
                             let mut sensor = sensor_mutex.lock().await;
-                            let calibration = calibration_rx.borrow().clone();
                             sensor.get_weight_reading(&calibration)
                         };
 
                         match reading_result {
                             Ok(weight) => {
                                 trace!("Weight reading: {:?}", weight);
-                                let _ = weight_readings_tx.send(weight);
+                                samples.push(weight.clone());
                             }
                             Err(e) => {
                                 trace!("Failed to read weight: {}", e);
@@ -101,7 +118,7 @@ pub async fn calibrate_weight_sensor(
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
-    let mut samples: Vec<i32> = Vec::with_capacity(300);
+    let mut samples: Vec<f32> = Vec::with_capacity(300);
 
     if let Some(sensor_mutex) = sensor_mutex_opt {
         // get approx 3 seconds of samples from weight sensor
@@ -114,7 +131,7 @@ pub async fn calibrate_weight_sensor(
             };
             match read_result {
                 Ok(reading) => {
-                    samples.push(reading);
+                    samples.push(reading as f32);
                 }
                 Err(e) => {
                     trace!("Failed to read weight during calibration: {}", e);
@@ -189,7 +206,7 @@ pub async fn tare_weight_sensor(
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
-    let mut samples: Vec<i32> = Vec::with_capacity(300);
+    let mut samples: Vec<f32> = Vec::with_capacity(300);
 
     if let Some(sensor_mutex) = sensor_mutex_opt {
         // get approx 3 seconds of samples from weight sensor
@@ -202,7 +219,7 @@ pub async fn tare_weight_sensor(
             };
             match read_result {
                 Ok(reading) => {
-                    samples.push(reading);
+                    samples.push(reading as f32);
                 }
                 Err(e) => {
                     trace!("Failed to read weight during tare: {}", e);
@@ -261,9 +278,8 @@ pub struct CalibrationRequest {
 /// Computes a 20% trimmed mean (removes the lowest and highest 20% of values)
 /// from the supplied sample slice, returning a rounded f32. Helps reject outliers
 /// and reduce noise in raw load cell readings.
-fn calculate_trimmed_mean(samples: &mut [i32]) -> f32 {
-    samples.sort_unstable();
-
+fn calculate_trimmed_mean(samples: &mut [f32]) -> f32 {
+    samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let n = samples.len();
     let k = (n * 20) / 100;
 
