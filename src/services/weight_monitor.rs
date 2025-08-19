@@ -103,7 +103,6 @@ pub async fn calibrate_weight_sensor(
         return Err("Dispenser is not operational, cannot calibrate".to_string());
     }
 
-
     let calibration_in_progress = app_state.lock().await.calibration_in_progress.clone();
     calibration_in_progress.store(true, Ordering::Relaxed);
 
@@ -112,9 +111,12 @@ pub async fn calibrate_weight_sensor(
         application_state::DispenserStatus::Calibrating,
     ).await;
 
+    let (calibration_rx, calibration_tx) = {
+        let app_state_lock = app_state.lock().await;
+        (app_state_lock.calibration_rx.clone(), app_state_lock.calibration_tx.clone())
+    };
+
     // Get the current calibration state
-    let calibration_rx = app_state.lock().await.calibration_rx.clone();
-    let calibration_tx = app_state.lock().await.calibration_tx.clone();
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
@@ -200,9 +202,12 @@ pub async fn tare_weight_sensor(
         application_state::DispenserStatus::Calibrating,
     ).await;
 
+    let (calibration_rx, calibration_tx) = {
+        let app_state_lock = app_state.lock().await;
+        (app_state_lock.calibration_rx.clone(), app_state_lock.calibration_tx.clone())
+    };
+
     // Get the current calibration state
-    let calibration_rx = app_state.lock().await.calibration_rx.clone();
-    let calibration_tx = app_state.lock().await.calibration_tx.clone();
     let mut calibration = calibration_rx.borrow().clone();
 
     let sensor_mutex_opt = app_state.lock().await.weight_sensor_mutex.clone();
